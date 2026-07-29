@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#14327A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SINCA">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<title>SINCA · PSA / ISSA</title>
+<link rel="stylesheet" href="/css/style.css">
+<link rel="icon" href="/img/psa.png">
+</head>
+<body>
+  <a class="skip-link" href="#contenido-principal">Saltar al contenido principal</a>
+
+<!-- ============ AUTENTICACIÓN ============ -->
+<section id="screen-auth" class="screen active">
+  <div class="auth-wrap">
+    <div class="auth-brand">
+      <div class="logo-row">
+        <img src="/img/psa.png" alt="PSA" class="logo-auth">
+        <img src="/img/issa.png" alt="ISSA" class="logo-auth logo-issa" style="height:58px;width:auto;max-width:180px;object-fit:contain">
+      </div>
+      <div class="brand-mark">SINCA</div>
+      <div class="brand-sub-name" style="font-size:11px;color:var(--muted);margin-bottom:2px">Sistema Institucional de Capacitación y Acreditación</div>
+      <div class="brand-sub">POLICÍA DE SEGURIDAD AEROPORTUARIA · INSTITUTO SUPERIOR DE SEGURIDAD AEROPORTUARIA</div>
+      <div class="brand-strip"><i class="c-org"></i><i class="c-ino"></i><i class="c-met"></i></div>
+    </div>
+
+    <div class="auth-card">
+      <div class="tabs">
+        <button class="tab active" data-tab="login">Iniciar sesión</button>
+        <button class="tab" data-tab="register">Registrarse</button>
+      </div>
+
+      <form id="form-login" class="auth-form" aria-label="Formulario de inicio de sesión">
+        <label>Usuario o Legajo
+          <input name="usuario" autocomplete="username" required
+                 aria-required="true" aria-label="Número de usuario o legajo">
+        </label>
+        <label>Contraseña
+          <input name="password" type="password" autocomplete="current-password" required
+                 aria-required="true" aria-label="Contraseña de acceso">
+        </label>
+        <button type="submit" class="btn-primary" aria-describedby="login-error">Ingresar a la plataforma</button>
+      </form>
+
+      <form id="form-register" class="auth-form hidden">
+        <div class="grid-2">
+          <label>Nombre/s <input name="nombre" required placeholder="Nombre/s"></label>
+          <label>Apellido/s <input name="apellido" required placeholder="Apellido/s"></label>
+        </div>
+        <div class="grid-2">
+          <label>DNI <input name="dni" required placeholder="Sin puntos"></label>
+          <label>Legajo / ID <input name="legajo" required placeholder="Número de legajo"></label>
+        </div>
+        <label>Jerarquía / Rango
+          <select name="rango" id="reg-rango-select">
+            <option value="">Seleccionar jerarquía…</option>
+          </select>
+        </label>
+        <div class="grid-2">
+          <label>Organismo / Empresa <input name="organismo" value="PSA" placeholder="PSA / Empresa"></label>
+          <label>Aeropuerto asignado <input name="aeropuerto" placeholder="Ej: Ezeiza, Aeroparque…"></label>
+        </div>
+        <label>Función / Cargo <input name="funcion" placeholder="Ej: Oficial de seguridad, Inspector…"></label>
+        <label>Contraseña (mín. 6) <input name="password" type="password" minlength="6" required></label>
+        <button type="submit" class="btn-primary">Crear cuenta</button>
+        <p class="hint">Las cuentas nuevas se crean con rol Estudiante. El administrador asigna los roles.</p>
+      </form>
+
+      <p id="auth-error" class="error hidden"></p>
+    </div>
+
+    <div class="verify-box">
+      <span>Validar certificado:</span>
+      <input id="verify-input" placeholder="ISSA-XXX-XXXXXXXX">
+      <button id="verify-btn" class="btn-ghost">Verificar</button>
+      <span id="verify-result"></span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CAMPUS ============ -->
+<section id="screen-campus" class="screen" role="main">
+  <header class="topbar">
+    <img src="/img/psa.png" class="logo-mini" alt="" style="height:32px;width:auto">
+    <img src="/img/issa.png" alt="ISSA" style="height:28px;width:auto;max-width:90px;object-fit:contain;margin-left:6px;opacity:.9">
+    <div class="brand-mini">SINCA</div>
+    <nav class="mainnav" id="mainnav">
+      <button data-nav="catalogo" class="active">Catálogo</button>
+      <button data-nav="miscursos">Mis cursos</button>
+      <button data-nav="certificados">Mis certificados</button>
+      <button data-nav="gestion" id="nav-gestion" class="hidden">Gestión</button>
+      <button data-nav="perfil" id="nav-perfil">Mi perfil</button>
+    </nav>
+    <div class="operator" id="operator-info"></div>
+    <button id="btn-logout" class="btn-ghost" aria-label="Cerrar sesión">Salir</button>
+  </header>
+
+  <div class="campus-wrap">
+    <div id="view-catalogo" class="campus-view"></div>
+    <div id="view-miscursos" class="campus-view hidden"></div>
+    <div id="view-certificados" class="campus-view hidden"></div>
+    <div id="view-perfil" class="campus-view hidden"></div>
+    <div id="view-gestion" class="campus-view hidden"></div>
+  </div>
+</section>
+
+<!-- ============ CURSO (NIVELES) ============ -->
+<section id="screen-course" class="screen">
+  <header class="topbar">
+    <img src="/img/psa.png" class="logo-mini" alt="">
+    <div class="brand-mini" id="course-cod-top">CURSO</div>
+    <div class="operator"></div>
+    <button id="btn-course-back" class="btn-ghost">◀ Volver al campus</button>
+  </header>
+  <div class="course-wrap" id="course-detail"></div>
+</section>
+
+<!-- ============ UNIDAD (VIDEO / LECTURA + CHECKPOINT) ============ -->
+<section id="screen-lesson" class="screen">
+  <header class="topbar">
+    <img src="/img/psa.png" class="logo-mini" alt="">
+    <div class="brand-mini" id="lesson-title-top">UNIDAD</div>
+    <div class="operator mono" id="lesson-status"></div>
+    <button id="btn-lesson-exit" class="btn-ghost">Abandonar unidad</button>
+  </header>
+
+  <div class="lesson-wrap">
+    <div id="lesson-stage"></div>
+
+    <!-- Checkpoint (bloqueante) -->
+    <div id="checkpoint-modal" class="modal hidden">
+      <div class="modal-card">
+        <div class="panel-title">CONTROL DE ATENCIÓN — RESPONDA PARA CONTINUAR</div>
+        <p id="checkpoint-q" class="checkpoint-q"></p>
+        <div id="checkpoint-opts" class="checkpoint-opts"></div>
+        <p id="checkpoint-msg" class="error hidden"></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ EXAMEN TEÓRICO ============ -->
+<section id="screen-exam" class="screen" role="main" aria-label="Examen teórico">
+  <header class="topbar" role="banner">
+    <img src="/img/psa.png" class="logo-mini" alt="">
+    <div class="brand-mini" aria-hidden="true">EXAMEN TEÓRICO</div>
+    <div class="operator mono" id="exam-info" aria-live="polite" aria-label="Progreso del examen"></div>
+    <button id="btn-exam-cancel" class="btn-ghost" aria-label="Cancelar examen y volver">Cancelar</button>
+  </header>
+  <div class="exam-wrap" id="contenido-principal">
+    <div class="exam-notice" role="alert">⚠ Examen individual: las preguntas, su orden y el orden de las opciones son únicos para usted. La corrección se realiza en el servidor del ISSA.</div>
+    <div id="exam-questions" role="list" aria-label="Preguntas del examen"></div>
+    <button id="btn-exam-submit" class="btn-primary" aria-describedby="exam-info">Entregar examen</button>
+  </div>
+</section>
+
+<!-- ============ SIMULADOR DE RAYOS X ============ -->
+<section id="screen-sim" class="screen">
+  <header class="topbar">
+    <img src="/img/psa.png" class="logo-mini" alt="">
+    <div class="sim-status">
+      <span id="sim-mode-label" class="pill"></span>
+      <span id="sim-progress" class="mono"></span>
+      <span id="sim-timer" class="mono timer hidden">--:--</span>
+    </div>
+    <button id="btn-exit-sim" class="btn-ghost">Salir</button>
+  </header>
+
+  <div class="sim-layout">
+    <div class="viewport-frame">
+      <div class="viewport-header">
+        <span class="lamp on"></span> TÚNEL 01 · BANDEJA <span id="tray-id" class="mono">—</span>
+        <span class="viewport-filter mono" id="active-filter-label">MULTI-ENERGÍA</span>
+      </div>
+      <div class="viewport" id="viewport">
+        <canvas id="xray-canvas"></canvas>
+        <div class="scanline" id="scanline"></div>
+        <div id="marks-layer"></div>
+      </div>
+      <div class="viewport-footer mono" id="viewport-hint">
+        Clic: marcar objeto sospechoso · Rueda / pellizco: zoom · Arrastrar: desplazar
+      </div>
+    </div>
+
+    <aside class="control-panel">
+      <div class="panel-title">FILTROS DE IMAGEN</div>
+      <div class="keypad">
+        <button class="key key-org" data-filter="organic"><b>ORG</b><span>Orgánico</span></button>
+        <button class="key key-ino" data-filter="inorganic"><b>INO</b><span>Inorgánico</span></button>
+        <button class="key key-met" data-filter="metal"><b>MET</b><span>Metal</span></button>
+        <button class="key" data-filter="none"><b>MULTI</b><span>Todo</span></button>
+        <button class="key" data-toggle="hipen"><b>HI-PEN</b><span>Alta penetr.</span></button>
+        <button class="key" data-toggle="lopen"><b>LO-PEN</b><span>Baja penetr.</span></button>
+        <button class="key" data-toggle="invert"><b>INV</b><span>Negativo</span></button>
+        <button class="key" data-toggle="bw"><b>B/N</b><span>Grises</span></button>
+      </div>
+
+      <div class="panel-title">ZOOM</div>
+      <div class="zoom-row">
+        <button class="key key-sm" id="zoom-out">−</button>
+        <span id="zoom-level" class="mono">100 %</span>
+        <button class="key key-sm" id="zoom-in">+</button>
+        <button class="key key-sm" id="zoom-reset">1:1</button>
+      </div>
+
+      <div class="panel-title">DECISIÓN DEL OPERADOR</div>
+      <div class="decision">
+        <button id="btn-clean" class="btn-decision ok">EQUIPAJE LIMPIO ✓</button>
+        <button id="btn-confirm" class="btn-decision alert">CONFIRMAR MARCAS ⚠</button>
+        <button id="btn-clear-marks" class="btn-ghost">Borrar marcas</button>
+      </div>
+
+      <div id="annotator-panel" class="hidden">
+        <div class="panel-title">ANOTADOR</div>
+        <label class="mini-label">Tipo de amenaza
+          <select id="threat-type">
+            <option value="arma_fuego">Arma de fuego</option>
+            <option value="arma_blanca">Arma blanca</option>
+            <option value="explosivo">Explosivo / AEI</option>
+            <option value="contrabando">Contrabando</option>
+            <option value="otro">Otro</option>
+          </select>
+        </label>
+        <div class="decision">
+          <button id="anno-clean" class="btn-decision ok">Marcar como LIMPIA</button>
+          <button id="anno-save" class="btn-decision alert">Guardar anotación</button>
+          <button id="anno-undo" class="btn-ghost">Deshacer caja</button>
+          <button id="anno-prev" class="btn-ghost">◀ Anterior</button>
+          <button id="anno-next" class="btn-ghost">Siguiente ▶</button>
+        </div>
+        <p class="hint">Arrastre sobre la imagen para dibujar la caja de la amenaza.</p>
+      </div>
+
+      <div id="feedback-box" class="feedback hidden"></div>
+      <button id="btn-next" class="btn-primary hidden">Siguiente imagen ▶</button>
+    </aside>
+  </div>
+</section>
+
+<!-- ============ RESULTADOS ============ -->
+<section id="screen-results" class="screen">
+  <div class="results-wrap">
+    <div class="logo-row"><img src="/img/psa.png" class="logo-results"><img src="/img/issa.png" class="logo-results logo-issa"></div>
+    <h1 id="results-title"></h1>
+    <div class="score-dial"><span id="results-score"></span></div>
+    <p id="results-detail"></p>
+    <div class="results-actions">
+      <button id="btn-download-cert" class="btn-primary hidden">Descargar certificado PDF ⬇</button>
+      <button id="btn-back-menu" class="btn-ghost">Volver al campus</button>
+    </div>
+    <table id="results-table" class="results-table">
+      <thead><tr><th>#</th><th>Detalle</th><th>Su decisión</th><th>Correcto</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
+<script src="/vendor/jspdf/jspdf.umd.min.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/scanner.js"></script>
+<script src="/js/certificate.js"></script>
+<script src="/js/modes.js"></script>
+<script src="/js/biometria.js"></script>
+<script src="/js/eppt_pdf.js"></script>
+<script src="/js/proctor.js"></script>
+<script src="/js/campus.js"></script>
+<script src="/js/gestion.js"></script>
+<script src="/js/idle.js"></script>
+<script src="/js/pwa.js"></script>
+<script src="/js/app.js"></script>
+  <!-- Nav mobile: barra inferior fija, solo visible en dispositivos táctiles -->
+  <nav id="mobile-nav" class="mobile-nav hidden" role="navigation" aria-label="Navegación mobile">
+    <button class="mobile-nav-btn active" data-mnav="catalogo">
+      <span class="mobile-nav-icon">📚</span><span class="mobile-nav-label">Catálogo</span>
+    </button>
+    <button class="mobile-nav-btn" data-mnav="miscursos">
+      <span class="mobile-nav-icon">▶️</span><span class="mobile-nav-label">Mis cursos</span>
+    </button>
+    <button class="mobile-nav-btn" data-mnav="certificados">
+      <span class="mobile-nav-icon">🎓</span><span class="mobile-nav-label">Cert.</span>
+    </button>
+    <button class="mobile-nav-btn" id="mobile-eppt-btn" data-mnav="eppt-mobile">
+      <span class="mobile-nav-icon">✍️</span><span class="mobile-nav-label">EPPT</span>
+    </button>
+    <button class="mobile-nav-btn" data-mnav="perfil">
+      <span class="mobile-nav-icon">👤</span><span class="mobile-nav-label">Perfil</span>
+    </button>
+  </nav>
+
+  <!-- Modal de bloqueo de examen en dispositivos mobile -->
+  <div id="mobile-exam-block" class="mobile-exam-block hidden" role="dialog" aria-modal="true">
+    <div class="mobile-exam-block-sheet">
+      <div class="meb-handle"></div>
+      <div style="font-size:44px;text-align:center;margin-bottom:14px">💻</div>
+      <h2 style="text-align:center;font-size:19px;margin-bottom:10px">El examen requiere una PC</h2>
+      <p style="text-align:center;font-size:14px;color:var(--muted);margin-bottom:20px;line-height:1.65">
+        Para rendir el examen necesitás una <strong>computadora con cámara habilitada</strong>.
+        Podés seguir avanzando en las unidades desde acá.
+      </p>
+      <div class="meb-can-do">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">Desde tu celular podés:</div>
+        <div style="font-size:13px;color:var(--muted);line-height:2">
+          ✔ Ver videos y completar unidades<br>
+          ✔ Responder preguntas de atención<br>
+          ✔ Cargar y firmar jornadas EPPT<br>
+          ✔ Ver y descargar tus certificados<br>
+          ✔ Actualizar tu perfil
+        </div>
+      </div>
+      <button id="meb-close" class="btn-primary" style="width:100%;margin-top:20px">
+        Entendido — seguir estudiando
+      </button>
+    </div>
+  </div>
+
+</body>
+</html>

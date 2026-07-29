@@ -1,0 +1,23 @@
+{
+  "name": "psa-xray-simulator",
+  "version": "1.0.0",
+  "description": "Simulador de escáner de Rayos X para entrenamiento AVSEC — PSA",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test tests/*.test.js",
+    "test:verbose": "node --test --test-reporter=spec tests/*.test.js",
+    "test:watch": "node --test --watch tests/*.test.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "jspdf": "^2.5.1",
+    "multer": "^2.2.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

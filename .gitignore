@@ -1,0 +1,46 @@
+# ─────────────────────────────────────────────────────────────
+# SINCA — Archivos que NUNCA deben subirse al repositorio
+# ─────────────────────────────────────────────────────────────
+
+# Dependencias (se reinstalan con "npm install")
+node_modules/
+
+# Base de datos y datos sensibles
+# Incluye: usuarios reales, certificados emitidos, y las fotos
+# de supervisión IA (datos biométricos — Ley N° 25.326)
+data/
+
+# Clave de firma de tokens (se genera sola en cada entorno)
+.jwt_secret
+*.jwt_secret
+
+# Variables de entorno con secretos
+.env
+.env.local
+.env.production
+
+# Backups generados por el sistema
+SINCA_backup_*.zip
+*.db
+*.db-wal
+*.db-shm
+
+# Contenido institucional pesado (se carga en cada servidor)
+assets/videos/*
+!assets/videos/.gitkeep
+assets/docs/*
+!assets/docs/.gitkeep
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Logs
+*.log
+npm-debug.log*

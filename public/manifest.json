@@ -1,0 +1,44 @@
+{
+  "name": "SINCA — PSA / ISSA",
+  "short_name": "SINCA",
+  "description": "Sistema Institucional de Capacitación y Acreditación — Policía de Seguridad Aeroportuaria",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f111a",
+  "theme_color": "#14327A",
+  "orientation": "portrait-primary",
+  "lang": "es-AR",
+  "categories": ["education", "government"],
+  "icons": [
+    { "src": "/icons/icon-72.png",   "sizes": "72x72",   "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-96.png",   "sizes": "96x96",   "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-128.png",  "sizes": "128x128", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-192.png",  "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-512.png",  "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "screenshots": [
+    {
+      "src": "/icons/screenshot-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Campus SINCA en mobile"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Mis cursos",
+      "short_name": "Cursos",
+      "description": "Ver mis cursos activos",
+      "url": "/?nav=miscursos",
+      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Mis certificados",
+      "short_name": "Certificados",
+      "description": "Ver y descargar mis certificados",
+      "url": "/?nav=certificados",
+      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='128' height='128' viewBox='0 0 128 128'>
+  <rect width='128' height='128' rx='23.04' fill='#14327A'/>
+  <text x='50%' y='45%' font-family='Arial' font-weight='bold' font-size='28.16' fill='white' text-anchor='middle' dominant-baseline='middle'>SINCA</text>
+  <rect x='19.2' y='71.68' width='89.6' height='5.12' fill='#C89614'/>
+  <text x='50%' y='75%' font-family='Arial' font-weight='bold' font-size='16.64' fill='#C8D8F8' text-anchor='middle' dominant-baseline='middle'>PSA / ISSA</text>
+</svg>

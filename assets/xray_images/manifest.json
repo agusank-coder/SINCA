@@ -1,0 +1,266 @@
+[
+  {
+    "filename": "xray_001_limpio.png",
+    "has_threat": false,
+    "threat_type": null,
+    "threats": []
+  },
+  {
+    "filename": "xray_002_arma_fuego.png",
+    "has_threat": true,
+    "threat_type": "arma_fuego",
+    "threats": [
+      {
+        "x": 0.5693,
+        "y": 0.2383,
+        "w": 0.2285,
+        "h": 0.2396,
+        "tipo": "arma_fuego"
+      }
+    ]
+  },
+  {
+    "filename": "xray_003_arma_fuego.png",
+    "has_threat": true,
+    "threat_type": "arma_fuego",
+    "threats": [
+      {
+        "x": 0.2178,
+        "y": 0.4596,
+        "w": 0.2285,
+        "h": 0.2396,
+        "tipo": "arma_fuego"
+      }
+    ]
+  },
+  {
+    "filename": "xray_004_explosivo.png",
+    "has_threat": true,
+    "threat_type": "explosivo",
+    "threats": [
+      {
+        "x": 0.54,
+        "y": 0.5065,
+        "w": 0.2627,
+        "h": 0.1615,
+        "tipo": "explosivo"
+      }
+    ]
+  },
+  {
+    "filename": "xray_005_limpio.png",
+    "has_threat": false,
+    "threat_type": null,
+    "threats": []
+  },
+  {
+    "filename": "xray_006_explosivo.png",
+    "has_threat": true,
+    "threat_type": "explosivo",
+    "threats": [
+      {
+        "x": 0.3643,
+        "y": 0.2669,
+        "w": 0.2627,
+        "h": 0.1615,
+        "tipo": "explosivo"
+      }
+    ]
+  },
+  {
+    "filename": "xray_007_explosivo.png",
+    "has_threat": true,
+    "threat_type": "explosivo",
+    "threats": [
+      {
+        "x": 0.2881,
+        "y": 0.431,
+        "w": 0.2627,
+        "h": 0.1615,
+        "tipo": "explosivo"
+      }
+    ]
+  },
+  {
+    "filename": "xray_008_limpio.png",
+    "has_threat": false,
+    "threat_type": null,
+    "threats": []
+  },
+  {
+    "filename": "xray_009_limpio.png",
+    "has_threat": false,
+    "threat_type": null,
+    "threats": []
+  },
+  {
+    "filename": "xray_010_arma_blanca.png",
+    "has_threat": true,
+    "threat_type": "arma_blanca",
+    "threats": [
+      {
+        "x": 0.5195,
+        "y": 0.3164,
+        "w": 0.3164,
+        "h": 0.1224,
+        "tipo": "arma_blanca"
+      }
+    ]
+  },
+  {
+    "filename": "xray_011_explosivo.png",
+    "has_threat": true,
+    "threat_type": "explosivo",
+    "threats": [
+      {
+        "x": 0.4443,
+        "y": 0.5495,
+        "w": 0.2627,
+        "h": 0.1615,
+        "tipo": "explosivo"
+      }
+    ]
+  },
+  {
+    "filename": "xray_012_arma_fuego.png",
+    "has_threat": true,
+    "threat_type": "arma_fuego",
+    "threats": [
+      {
+        "x": 0.502,
+        "y": 0.4518,
+        "w": 0.2285,
+        "h": 0.2396,
+        "tipo": "arma_fuego"
+      }
+    ]
+  },
+  {
+    "filename": "xray_013_limpio.png",
+    "has_threat": false,
+    "threat_type": null,
+    "threats": []
+  },
+  {
+    "filename": "xray_014_explosivo.png",
+    "has_threat": true,
+    "threat_type": "explosivo",
+    "threats": [
+      {
+        "x": 0.5176,
+        "y": 0.5104,
+        "w": 0.2627,
+        "h": 0.1615,
+        "tipo": "explosivo"
+      }
+    ]
+  },
+  {
+    "filename": "xray_015_arma_fuego.png",
+    "has_threat": true,
+    "threat_type": "arma_fuego",
+    "threats": [
+      {
+        "x": 0.3877,
+        "y": 0.3815,
+        "w": 0.2285,
+        "h": 0.2396,
+        "tipo": "arma_fuego"
+      }
+    ]
+  },
+  {
+    "filename": "xray_016_limpio.png",
+    "has_threat": false,
+    "threat_type": null,
+    "threats": []
+  },
+  {
+    "filename": "xray_017_arma_blanca.png",
+    "has_threat": true,
+    "threat_type": "arma_blanca",
+    "threats": [
+      {
+        "x": 0.5205,
+        "y": 0.5156,
+        "w": 0.3164,
+        "h": 0.1224,
+        "tipo": "arma_blanca"
+      }
+    ]
+  },
+  {
+    "filename": "xray_018_limpio.png",
+    "has_threat": false,
+    "threat_type": null,
+    "threats": []
+  },
+  {
+    "filename": "xray_019_arma_blanca.png",
+    "has_threat": true,
+    "threat_type": "arma_blanca",
+    "threats": [
+      {
+        "x": 0.5928,
+        "y": 0.582,
+        "w": 0.3164,
+        "h": 0.1224,
+        "tipo": "arma_blanca"
+      }
+    ]
+  },
+  {
+    "filename": "xray_020_contrabando.png",
+    "has_threat": true,
+    "threat_type": "contrabando",
+    "threats": [
+      {
+        "x": 0.4248,
+        "y": 0.2786,
+        "w": 0.209,
+        "h": 0.2005,
+        "tipo": "contrabando"
+      }
+    ]
+  },
+  {
+    "filename": "xray_021_contrabando.png",
+    "has_threat": true,
+    "threat_type": "contrabando",
+    "threats": [
+      {
+        "x": 0.5098,
+        "y": 0.2943,
+        "w": 0.209,
+        "h": 0.2005,
+        "tipo": "contrabando"
+      }
+    ]
+  },
+  {
+    "filename": "xray_022_limpio.png",
+    "has_threat": false,
+    "threat_type": null,
+    "threats": []
+  },
+  {
+    "filename": "xray_023_contrabando.png",
+    "has_threat": true,
+    "threat_type": "contrabando",
+    "threats": [
+      {
+        "x": 0.2314,
+        "y": 0.3646,
+        "w": 0.209,
+        "h": 0.2005,
+        "tipo": "contrabando"
+      }
+    ]
+  },
+  {
+    "filename": "xray_024_limpio.png",
+    "has_threat": false,
+    "threat_type": null,
+    "threats": []
+  }
+]
