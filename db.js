@@ -246,8 +246,12 @@ CREATE TABLE IF NOT EXISTS certificates (
   anulado    INTEGER NOT NULL DEFAULT 0,
   observaciones TEXT NOT NULL DEFAULT '',
   firma_hash TEXT NOT NULL DEFAULT '',   -- firma electrónica del documento (Ley 25.506)
-  enrollment_id INTEGER REFERENCES enrollments(id)  -- ciclo/cursada exacta que originó este certificado
-);
+enrollment_id INTEGER REFERENCES enrollments(id),  -- ciclo/cursada exacta que originó este certificado
+  numero_credencial TEXT UNIQUE,  -- número único de credencial (vinculado a QR)
+  clinical_exam_id INTEGER REFERENCES clinical_exams(id),  -- vinculación con exámenes clínicos
+  vigencia_meses INTEGER NOT NULL DEFAULT 12  -- meses de validez para calcular vencimiento automático
+  
+  );
 -- Profesionales de Sanidad (para firmar parámetros)
 CREATE TABLE IF NOT EXISTS health_professionals (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
