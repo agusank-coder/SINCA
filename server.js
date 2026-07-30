@@ -4491,7 +4491,183 @@ app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.ht
 // todos los roles nuevos (sanidad, juosp, juosp_regional, fiscalizador) en cada arranque.
 // La validación de roles vive exclusivamente en validRoles dentro del endpoint de cambio de rol.
 
+// ─── ENDPOINTS PARA PARÁMETROS CLÍNICOS Y PSICOTÉCNICOS ───
 
+/**
+ * POST /api/examen-clinico/crear
+ * Crear nuevo examen clínico
+ */
+app.post('/api/examen-clinico/crear', (req, res) => {
+  try {
+    const { enrollment_id, tipo_examen, observaciones } = req.body;
+    
+    if (!enrollment_id || !tipo_examen) {
+      return res.status(400).json({ error: 'enrollment_id y tipo_examen requeridos' });
+    }
+    
+    const { crearExamenClinico } = require('./db');
+    const exam_id = crearExamenClinico(enrollment_id, tipo_examen, observaciones || '');
+    
+    res.json({ success: true, exam_id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/parametros-clinicos/:tipo_examen
+ * Obtener parámetros clínicos por tipo de examen
+ */
+app.get('/api/parametros-clinicos/:tipo_examen', (req, res) => {
+  try {
+    const { tipo_examen } = req.params;
+    const { obtenerParametrosPorTipo } = require('./db');
+    
+    const parametros = obtenerParametrosPorTipo(tipo_examen);
+    res.json({ success: true, parametros });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/resultado-clinico/registrar
+ * Registrar resultado de parámetro clínico con firma del profesional
+ */
+app.post('/api/resultado-clinico/registrar', (req, res) => {
+  try {
+    const { 
+      clinical_exam_id, 
+      clinical_parameter_id, 
+      valor_resultado, 
+      health_professional_id, 
+      firma_electronica, 
+      observaciones 
+    } = req.body;
+    
+    if (!clinical_exam_id || !clinical_parameter_id || !valor_resultado || !health_professional_id || !firma_electronica) {
+      return res.status(400).json({ error: 'Campos requeridos: clinical_exam_id, clinical_parameter_id, valor_resultado, health_professional_id, firma_electronica' });
+    }
+    
+    const { registrarResultadoClinico } = require('./db');
+    const result_id = registrarResultadoClinico(
+      clinical_exam_id, 
+      clinical_parameter_id, 
+      valor_resultado, 
+      health_professional_id, 
+      firma_electronica, 
+      observaciones || ''
+    );
+    
+    res.json({ 
+      success: true, 
+      result_id,
+      mensaje: 'Resultado registrado y firmado correctamente'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/indicadores-psicotecnicos
+ * Obtener indicadores del perfil psicotécnico
+ */
+app.get('/api/indicadores-psicotecnicos', (req, res) => {
+  try {
+    const { obtenerIndicadoresPsicotecnicos } = require('./db');
+    const indicadores = obtenerIndicadoresPsicotecnicos();
+    
+    res.json({ success: true, indicadores });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/resultado-psicotecnico/registrar
+ * Registrar resultado psicotécnico (APTO/NO APTO) con firma del evaluador
+ */
+app.post('/api/resultado-psicotecnico/registrar', (req, res) => {
+  try {
+    const { 
+      clinical_exam_id, 
+      psychometric_indicator_id, 
+      resultado, 
+      health_professional_id, 
+      firma_electronica, 
+      observaciones 
+    } = req.body;
+    
+    if (!clinical_exam_id || !psychometric_indicator_id || !resultado || !health_professional_id || !firma_electronica) {
+      return res.status(400).json({ error: 'Campos requeridos: clinical_exam_id, psychometric_indicator_id, resultado, health_professional_id, firma_electronica' });
+    }
+    
+    if (!['APTO', 'NO_APTO'].includes(resultado)) {
+      return res.status(400).json({ error: 'resultado debe ser APTO o NO_APTO' });
+    }
+    
+    const { registrarResultadoPsicotecnico } = require('./db');
+    const result_id = registrarResultadoPsicotecnico(
+      clinical_exam_id, 
+      psychometric_indicator_id, 
+      resultado, 
+      health_professional_id, 
+      firma_electronica, 
+      observaciones || ''
+    );
+    
+    res.json({ 
+      success: true, 
+      result_id,
+      resultado,
+      mensaje: `Evaluación registrada como ${resultado} y firmada correctamente`
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/certificado/generar-numero
+ * Generar número de credencial único
+ */
+app.post('/api/certificado/generar-numero', (req, res) => {
+  try {
+    const { generarNumeroCredencial } = require('./db');
+    const numero_credencial = generarNumeroCredencial();
+    
+    res.json({ success: true, numero_credencial });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/certificado/calcular-vencimiento
+ * Calcular fecha de vencimiento automática
+ */
+app.post('/api/certificado/calcular-vencimiento', (req, res) => {
+  try {
+    const { issued_at, vigencia_meses } = req.body;
+    
+    if (!issued_at) {
+      return res.status(400).json({ error: 'issued_at requerido (formato ISO)' });
+    }
+    
+    const { calcularVencimiento } = require('./db');
+    const vencimiento = calcularVencimiento(issued_at, vigencia_meses || 12);
+    
+    res.json({ 
+      success: true, 
+      vencimiento,
+      issued_at,
+      vigencia_meses: vigencia_meses || 12
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // Arrancar el servidor solo si se ejecuta directamente (node server.js),
 // NO si se importa desde los tests (require('./server'))
 if (require.main === module) {
