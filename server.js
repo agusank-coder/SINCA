@@ -16,6 +16,11 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const { db, stmts } = require('./db');
+const { seedClinicos } = require('./seed_clinicos');
+
+// Al iniciar, cargar datos de parámetros clínicos
+seedClinicos();
+
 
 /* Parche de CHECK de roles — ya no necesario (CHECK eliminado del schema).
    La validación de roles vive exclusivamente en server.js (validRoles).
