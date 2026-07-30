@@ -104,12 +104,14 @@ const Gestion = {
       ],
       sanidad: [
         { seccion: 'Sanidad / Módulo Médico', icono: '🏥', items: [
-          { k:'apto_medico', t:'Aptitud Psicofísica', i:'🏥' },
+         { k:'apto_medico', t:'Aptitud Psicofísica', i:'🏥' },
+{ k:'certificados_medicos', t:'Certificados Médicos', i:'📜' },
         ]},
       ],
       medico: [
         { seccion: 'Sanidad / Módulo Médico', icono: '🏥', items: [
           { k:'apto_medico', t:'Aptitud Psicofísica', i:'🏥' },
+{ k:'certificados_medicos', t:'Certificados Médicos', i:'📜' },
         ]},
       ],
       juosp: [
