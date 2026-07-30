@@ -247,6 +247,90 @@ CREATE TABLE IF NOT EXISTS certificates (
   firma_hash TEXT NOT NULL DEFAULT '',   -- firma electrónica del documento (Ley 25.506)
   enrollment_id INTEGER REFERENCES enrollments(id)  -- ciclo/cursada exacta que originó este certificado
 );
+-- Profesionales de Sanidad (para firmar parámetros)
+CREATE TABLE IF NOT EXISTS health_professionals (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  matricula     TEXT UNIQUE NOT NULL,
+  nombre        TEXT NOT NULL,
+  apellido      TEXT NOT NULL,
+  especialidad  TEXT NOT NULL DEFAULT '',
+  firma_digital TEXT NOT NULL DEFAULT '',  -- dato biométrico/digital de la firma
+  activo        INTEGER NOT NULL DEFAULT 1,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+-- Parámetros Clínicos Predefinidos (banco de parámetros)
+CREATE TABLE IF NOT EXISTS clinical_parameters (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  tipo_examen  TEXT NOT NULL,  -- 'Radiografía', 'Laboratorio', 'Psicotécnico', etc.
+  codigo       TEXT UNIQUE NOT NULL,
+  nombre       TEXT NOT NULL,
+  descripcion  TEXT NOT NULL DEFAULT '',
+  unidad       TEXT NOT NULL DEFAULT '',  -- 'mm', 'mg/dl', etc.
+  rango_minimo REAL,
+  rango_maximo REAL,
+  normal_desde TEXT,  -- 'rango de normalidad' si aplica
+  normal_hasta TEXT,
+  activo       INTEGER NOT NULL DEFAULT 1,
+  orden        INTEGER NOT NULL DEFAULT 0,
+  created_at   TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+-- Exámenes Clínicos (una cursada/evaluación puede tener múltiples exámenes)
+CREATE TABLE IF NOT EXISTS clinical_exams (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  enrollment_id   INTEGER NOT NULL REFERENCES enrollments(id) ON DELETE CASCADE,
+  certificate_id  INTEGER REFERENCES certificates(id) ON DELETE CASCADE,
+  tipo_examen     TEXT NOT NULL,  -- 'Radiografía', 'Laboratorio', 'Psicotécnico'
+  fecha_examen    TEXT NOT NULL DEFAULT (date('now','localtime')),
+  observaciones   TEXT NOT NULL DEFAULT '',
+  estado          TEXT NOT NULL DEFAULT 'pendiente',  -- 'pendiente', 'en_proceso', 'completado'
+  created_at      TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  updated_at      TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+-- Resultados Individuales de Parámetros Clínicos (con firma del profesional)
+CREATE TABLE IF NOT EXISTS clinical_exam_results (
+  id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+  clinical_exam_id     INTEGER NOT NULL REFERENCES clinical_exams(id) ON DELETE CASCADE,
+  clinical_parameter_id INTEGER NOT NULL REFERENCES clinical_parameters(id) ON DELETE CASCADE,
+  valor_resultado      TEXT NOT NULL,  -- valor registrado
+  observaciones        TEXT NOT NULL DEFAULT '',
+  health_professional_id INTEGER REFERENCES health_professionals(id),
+  firma_electronica    TEXT NOT NULL DEFAULT '',  -- firma digital del profesional
+  fecha_firma          TEXT,
+  estado               TEXT NOT NULL DEFAULT 'pendiente',  -- 'pendiente', 'firmado', 'rechazado'
+  created_at           TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  updated_at           TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+-- Indicadores del Perfil Psicotécnico
+CREATE TABLE IF NOT EXISTS psychometric_indicators (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  codigo      TEXT UNIQUE NOT NULL,
+  nombre      TEXT NOT NULL,
+  descripcion TEXT NOT NULL DEFAULT '',
+  categoria   TEXT NOT NULL DEFAULT '',  -- 'Atención', 'Personalidad', 'Aptitud física', etc.
+  activo      INTEGER NOT NULL DEFAULT 1,
+  orden       INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+-- Resultados del Perfil Psicotécnico (APTO/NO APTO por parámetro)
+CREATE TABLE IF NOT EXISTS psychometric_results (
+  id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+  clinical_exam_id        INTEGER NOT NULL REFERENCES clinical_exams(id) ON DELETE CASCADE,
+  psychometric_indicator_id INTEGER NOT NULL REFERENCES psychometric_indicators(id) ON DELETE CASCADE,
+  resultado               TEXT NOT NULL,  -- 'APTO' | 'NO_APTO'
+  observaciones           TEXT NOT NULL DEFAULT '',
+  health_professional_id  INTEGER REFERENCES health_professionals(id),
+  firma_electronica       TEXT NOT NULL DEFAULT '',  -- firma del evaluador
+  fecha_firma             TEXT,
+  estado                  TEXT NOT NULL DEFAULT 'pendiente',  -- 'pendiente', 'firmado', 'rechazado'
+  created_at              TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  updated_at              TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
 
 -- Libro de Aula y Asistencia
 CREATE TABLE IF NOT EXISTS asistencia (
