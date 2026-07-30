@@ -1390,3 +1390,38 @@ const stmts = {
 };
 
 module.exports = { db, stmts };
+// --- MÓDULO SANIDAD / APTITUD PSICOFÍSICA ---
+db.exec(`
+  ALTER TABLE users ADD COLUMN estado_sanidad TEXT DEFAULT 'PENDIENTE_EVALUACION';
+`).catch(() => {});
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS certificados_medicos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agente_id INTEGER NOT NULL,
+    tipo_examen TEXT NOT NULL,
+    fecha_emision DATETIME DEFAULT CURRENT_TIMESTAMP,
+    fecha_vencimiento DATE NOT NULL,
+    dictamen_global TEXT NOT NULL,
+    codigo_certificado TEXT UNIQUE NOT NULL,
+    hash_sha256 TEXT NOT NULL,
+    hash_truncado TEXT NOT NULL,
+    profesional_emisor_id INTEGER NOT NULL,
+    uosp_id INTEGER NOT NULL,
+    region_id INTEGER NOT NULL,
+    es_activo BOOLEAN DEFAULT 1
+  );
+
+  CREATE TABLE IF NOT EXISTS estudios_medicos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    certificado_id INTEGER NOT NULL,
+    tipo_modulo TEXT NOT NULL,
+    resultado TEXT NOT NULL,
+    observaciones TEXT,
+    profesional_id INTEGER NOT NULL,
+    matricula TEXT NOT NULL,
+    especialidad TEXT NOT NULL,
+    fecha_hora_firma DATETIME DEFAULT CURRENT_TIMESTAMP,
+    uosp_id INTEGER NOT NULL
+  );
+`);
