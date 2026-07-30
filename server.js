@@ -4647,6 +4647,155 @@ app.post('/api/certificado/generar-numero', (req, res) => {
  * POST /api/certificado/calcular-vencimiento
  * Calcular fecha de vencimiento automática
  */
+/**
+ * GET /api/resultados-clinicos/:clinical_exam_id
+ * Obtener resultados clínicos de un examen
+ */
+app.get('/api/resultados-clinicos/:clinical_exam_id', (req, res) => {
+  try {
+    const { clinical_exam_id } = req.params;
+    const stmt = db.prepare(`
+      SELECT 
+        cer.id,
+        cer.valor_resultado,
+        cer.observaciones,
+        cp.nombre,
+        cp.unidad,
+        hp.nombre || ' ' || hp.apellido as health_professional,
+        cer.fecha_firma,
+        cer.firma_electronica
+      FROM clinical_exam_results cer
+      JOIN clinical_parameters cp ON cer.clinical_parameter_id = cp.id
+      LEFT JOIN health_professionals hp ON cer.health_professional_id = hp.id
+      WHERE cer.clinical_exam_id = ? AND cer.estado = 'firmado'
+      ORDER BY cp.orden ASC
+    `);
+    
+    const resultados = stmt.all(clinical_exam_id);
+    res.json({ success: true, resultados });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/resultados-psicotecnico/:clinical_exam_id
+ * Obtener resultados psicotécnico de un examen
+ */
+app.get('/api/resultados-psicotecnico/:clinical_exam_id', (req, res) => {
+  try {
+    const { clinical_exam_id } = req.params;
+    const stmt = db.prepare(`
+      SELECT 
+        pr.id,
+        pr.resultado,
+        pr.observaciones,
+        pi.nombre,
+        pi.categoria,
+        hp.nombre || ' ' || hp.apellido as health_professional,
+        pr.fecha_firma,
+        pr.firma_electronica
+      FROM psychometric_results pr
+      JOIN psychometric_indicators pi ON pr.psychometric_indicator_id = pi.id
+      LEFT JOIN health_professionals hp ON pr.health_professional_id = hp.id
+      WHERE pr.clinical_exam_id = ? AND pr.estado = 'firmado'
+      ORDER BY pi.orden ASC
+    `);
+    
+    const resultados = stmt.all(clinical_exam_id);
+    res.json({ success: true, resultados });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/certificado/:certificate_id
+ * Obtener certificado completo con parámetros clínicos y psicotécnico
+ */
+app.get('/api/certificado/:certificate_id', (req, res) => {
+  try {
+    const { certificate_id } = req.params;
+    
+    // Obtener datos base del certificado
+    const stmtCert = db.prepare(`
+      SELECT 
+        c.*,
+        u.nombre,
+        u.apellido,
+        u.dni,
+        u.legajo,
+        u.rango,
+        u.aeropuerto,
+        u.organismo,
+        co.cod as curso_cod,
+        co.nombre as curso_nombre,
+        co.horas
+      FROM certificates c
+      JOIN users u ON c.user_id = u.id
+      JOIN courses co ON c.course_id = co.id
+      WHERE c.id = ?
+    `);
+    
+    const certificado = stmtCert.get(certificate_id);
+    
+    if (!certificado) {
+      return res.status(404).json({ error: 'Certificado no encontrado' });
+    }
+    
+    // Obtener parámetros clínicos si existen
+    let parametros_clinicos = [];
+    if (certificado.clinical_exam_id) {
+      const stmtParams = db.prepare(`
+        SELECT 
+          cer.valor_resultado,
+          cer.observaciones,
+          cp.nombre,
+          cp.unidad,
+          hp.nombre || ' ' || hp.apellido as health_professional,
+          cer.fecha_firma
+        FROM clinical_exam_results cer
+        JOIN clinical_parameters cp ON cer.clinical_parameter_id = cp.id
+        LEFT JOIN health_professionals hp ON cer.health_professional_id = hp.id
+        WHERE cer.clinical_exam_id = ? AND cer.estado = 'firmado'
+        ORDER BY cp.orden ASC
+      `);
+      parametros_clinicos = stmtParams.all(certificado.clinical_exam_id);
+    }
+    
+    // Obtener resultados psicotécnico si existen
+    let psicotecnico = [];
+    if (certificado.clinical_exam_id) {
+      const stmtPsy = db.prepare(`
+        SELECT 
+          pr.resultado,
+          pr.observaciones,
+          pi.nombre,
+          pi.categoria,
+          hp.nombre || ' ' || hp.apellido as health_professional,
+          pr.fecha_firma
+        FROM psychometric_results pr
+        JOIN psychometric_indicators pi ON pr.psychometric_indicator_id = pi.id
+        LEFT JOIN health_professionals hp ON pr.health_professional_id = hp.id
+        WHERE pr.clinical_exam_id = ? AND pr.estado = 'firmado'
+        ORDER BY pi.orden ASC
+      `);
+      psicotecnico = stmtPsy.all(certificado.clinical_exam_id);
+    }
+    
+    res.json({ 
+      success: true, 
+      certificado: {
+        ...certificado,
+        parametros_clinicos,
+        psicotecnico
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/certificado/calcular-vencimiento', (req, res) => {
   try {
     const { issued_at, vigencia_meses } = req.body;

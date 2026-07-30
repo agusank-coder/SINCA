@@ -8,12 +8,69 @@ async function _loadImg(url) {
     return await new Promise(ok=>{ const fr=new FileReader(); fr.onload=()=>{ _logoCache[url]=fr.result; ok(fr.result); }; fr.readAsDataURL(b); });
   } catch { return null; }
 }
+/**
+ * Obtener resultados clínicos de la base de datos
+ * @param {number} clinical_exam_id - ID del examen clínico
+ * @returns {Promise<Array>} resultados clínicos
+ */
+async function obtenerResultadosClinicosDelCertificado(clinical_exam_id) {
+  try {
+    const response = await fetch(`/api/resultados-clinicos/${clinical_exam_id}`);
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.resultados || [];
+  } catch (err) {
+    console.error('Error obteniendo resultados clínicos:', err);
+    return [];
+  }
+}
 
+/**
+ * Obtener resultados psicotécnico de la base de datos
+ * @param {number} clinical_exam_id - ID del examen clínico
+ * @returns {Promise<Array>} resultados psicotécnico
+ */
+async function obtenerResultadosPsicotecnicoCertificado(clinical_exam_id) {
+  try {
+    const response = await fetch(`/api/resultados-psicotecnico/${clinical_exam_id}`);
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.resultados || [];
+  } catch (err) {
+    console.error('Error obteniendo resultados psicotécnico:', err);
+    return [];
+  }
+}
+
+/**
+ * Cargar datos completos del certificado (parámetros + firma)
+ * @param {number} certificate_id - ID del certificado
+ * @returns {Promise<Object>} datos completos
+ */
+async function cargarDatosCertificadoCompleto(certificate_id) {
+  try {
+    const response = await fetch(`/api/certificado/${certificate_id}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.certificado || null;
+  } catch (err) {
+    console.error('Error cargando datos del certificado:', err);
+    return null;
+  }
+}
 async function generateCertificate(cert, esReimpresion=false) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit:'mm', format:'a4', orientation:'landscape' });
   const W=297, H=210;
-
+// Cargar datos clínicos si hay clinical_exam_id
+  if(cert.clinical_exam_id) {
+    const datosCompletos = await cargarDatosCertificadoCompleto(cert.id);
+    if(datosCompletos) {
+      cert.parametros_clinicos = datosCompletos.parametros_clinicos || [];
+      cert.psicotecnico = datosCompletos.psicotecnico || [];
+      cert.numero_credencial = datosCompletos.numero_credencial;
+    }
+  }
   // Fondo blanco
   doc.setFillColor(255,255,255); doc.rect(0,0,W,H,'F');
   // Borde exterior doble
@@ -94,6 +151,76 @@ async function generateCertificate(cert, esReimpresion=false) {
     doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(25,130,70);
     doc.text('Valida hasta el '+_fmtFecha(cert.vencimiento)+'  ·  instruccion recurrente SINCA', W/2, yPost+13, {align:'center'});
   }
+
+  // ─── DATOS CLÍNICOS Y PSICOTÉCNICOS ───
+  const yParam = yPost + 20;
+  
+  // Número de credencial único
+  doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(200,150,20);
+  doc.text('Nº Credencial: ' + (cert.numero_credencial || 'N/A'), W/2, yParam, {align:'center'});
+  
+  // Sección de Parámetros Clínicos
+  if(cert.parametros_clinicos && cert.parametros_clinicos.length > 0) {
+    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(18,45,110);
+    doc.text('PARÁMETROS CLÍNICOS Y LABORATORIO', 20, yParam + 12);
+    
+    let yParamRow = yParam + 18;
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(70,70,75);
+    
+    cert.parametros_clinicos.forEach(param => {
+      doc.text('• ' + param.nombre + ': ' + param.valor_resultado + ' ' + (param.unidad || ''), 25, yParamRow);
+      if(param.observaciones) {
+        doc.setFontSize(7); doc.setTextColor(100,100,105);
+        doc.text('  Obs: ' + param.observaciones, 25, yParamRow + 3.5);
+        yParamRow += 7;
+      } else {
+        yParamRow += 3.5;
+      }
+      // Indicar que fue firmado por profesional
+      if(param.health_professional) {
+        doc.setFontSize(7); doc.setTextColor(30,140,80);
+        doc.text('  ✓ Firmado por ' + param.health_professional, 25, yParamRow);
+        yParamRow += 3.5;
+      }
+    });
+    yParamRow += 5;
+  }
+  
+  // Sección de Perfil Psicotécnico
+  if(cert.psicotecnico && cert.psicotecnico.length > 0) {
+    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(18,45,110);
+    doc.text('PERFIL PSICOTÉCNICO', 20, yParamRow);
+    
+    let yPsyRow = yParamRow + 6;
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(70,70,75);
+    
+    cert.psicotecnico.forEach(psy => {
+      const aptitud = psy.resultado === 'APTO' 
+        ? '✓ APTO' 
+        : '✗ NO APTO';
+      const colorAptitud = psy.resultado === 'APTO' ? [30,140,80] : [200,30,30];
+      
+      doc.text('• ' + psy.nombre, 25, yPsyRow);
+      doc.setTextColor(...colorAptitud);
+      doc.text(aptitud, 180, yPsyRow);
+      doc.setTextColor(70,70,75);
+      
+      if(psy.observaciones) {
+        doc.setFontSize(7);
+        doc.text('  Obs: ' + psy.observaciones, 25, yPsyRow + 3.5);
+        yPsyRow += 7;
+      } else {
+        yPsyRow += 3.5;
+      }
+      
+      if(psy.health_professional) {
+        doc.setFontSize(7); doc.setTextColor(30,140,80);
+        doc.text('  ✓ Evaluado por ' + psy.health_professional, 25, yPsyRow);
+        yPsyRow += 3.5;
+      }
+    });
+  }
+
 
   // ─── FIRMAS ───
   const YS = H-21;
