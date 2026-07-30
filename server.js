@@ -1758,19 +1758,62 @@ function epptHorasFirmadas(epptId) {
     .reduce((s, e) => s + e.horas, 0);
 }
 
-/** Emite el certificado con FIRMA ELECTRÓNICA institucional (hash verificable, Ley 25.506). */
 function emitCertificate(userId, enr, c, atts) {
-  const code = 'ISSA-' + c.cod.replace(/[^0-9A]/g, '') + '-' + crypto.randomBytes(4).toString('hex').toUpperCase();
+  const code = 'ISSA-' + c.cod.replace(/[^0-9A]/g, '') + '-' + 
+               crypto.randomBytes(4).toString('hex').toUpperCase();
+  
   const scores = atts.filter(a => a.passed).map(a => a.score_pct);
-  const finalScore = Math.round((scores.reduce((s, x) => s + x, 0) / Math.max(1, scores.length)) * 10) / 10;
-  const venc = c.vigencia_meses > 0 ? addMonths(new Date().toISOString(), c.vigencia_meses) : null;
-  stmts.insertCert.run({ user_id: userId, course_id: c.id, code, score_pct: finalScore, vencimiento: venc, enrollment_id: enr.id });
+  const finalScore = Math.round(
+    (scores.reduce((s, x) => s + x, 0) / Math.max(1, scores.length)) * 10
+  ) / 10;
+  
+  const numero_credencial = generarNumeroCredencial();
+  const issued_at = new Date().toISOString().slice(0, 10);
+  const vencimiento = c.vigencia_meses > 0 
+    ? calcularVencimiento(issued_at, c.vigencia_meses) 
+    : null;
+  
+  const clinicalExam = db.prepare(
+    'SELECT id FROM clinical_exams WHERE enrollment_id = ? ORDER BY id DESC LIMIT 1'
+  ).get(enr.id);
+  
+  // Insertar certificado
+  stmts.insertCert.run({ 
+    user_id: userId, 
+    course_id: c.id, 
+    code, 
+    score_pct: finalScore, 
+    vencimiento,
+    enrollment_id: enr.id,
+    numero_credencial,
+    clinical_exam_id: clinicalExam?.id || null
+  });
+  
+  // Calcular firma electrónica
   const u = stmts.userById.get(userId);
   const firma = crypto.createHash('sha256')
-    .update([code, u.dni || u.legajo, c.cod, finalScore, venc || '', JWT_SECRET].join('|')).digest('hex');
+    .update([code, u.dni || u.legajo, c.cod, finalScore, vencimiento || '', JWT_SECRET].join('|'))
+    .digest('hex');
+  
   db.prepare('UPDATE certificates SET firma_hash = ? WHERE code = ?').run(firma, code);
-  AUDIT(userId, 'CERTIFICADO_EMITIDO', `${c.cod} ${code} vence:${venc || 'sin vencimiento'} · firma electrónica ${firma.slice(0, 12)}…`);
-  // Registro correlativo
+  
+  // Auditoría
+  AUDIT(userId, 'CERTIFICADO_EMITIDO', 
+    `${c.cod} ${code} vence:${vencimiento || 'sin vencimiento'} · credencial:${numero_credencial} · firma:${firma.slice(0, 12)}…`);
+  
+  // Registrar en correlativo (con manejo de errores mejorado)
+  try {
+    const anio = new Date().getFullYear();
+    const numDoc = generarNumDoc('CERT', anio);
+    stmts.insertRegDoc.run('certificado', numDoc, userId, c.id, code, userId);
+  } catch (err) {
+    console.warn(`⚠️ No se registró correlativo para certificado ${code}:`, err.message);
+    // No falla la emisión, solo el registro administrativo
+  }
+  
+  return stmts.certByCode.get(code);
+}
+  
   try {
     const anio = new Date().getFullYear();
     const numDoc = generarNumDoc('CERT', anio);
