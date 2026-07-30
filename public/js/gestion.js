@@ -3662,4 +3662,36 @@ const Gestion = {
     } catch (e) { alert(e.message); }
     return false;
   }
+  async t_certificados_medicos(el) {
+    el.innerHTML = '<p class="hint">Cargando…</p>';
+    const { users } = await API.adminUsers().catch(() => ({ users: [] }));
+    el.innerHTML = `
+      <h2>Certificados Médicos</h2>
+      <p class="hint">Emisión de certificados de aptitud (Ley 25.506).</p>
+      <button class="btn-primary" id="btn-emit" style="margin-bottom:16px">+ Emitir certificado</button>
+      <table class="list-table">
+        <thead><tr><th>Agente</th><th>Legajo</th><th>Organismo</th><th>Estado</th><th>Vence</th><th>Código</th></tr></thead>
+        <tbody>${users.map(u => `<tr><td>${u.apellido}, ${u.nombre}</td><td>${u.legajo}</td><td>${u.organismo}</td>
+          <td class="est-${u.id}">—</td><td class="ven-${u.id}">—</td><td class="cod-${u.id}">—</td></tr>`).join('')}</tbody>
+      </table>
+    `;
+    users.forEach(u => API.getCertMedicoAgente(u.id).then(r => {
+      if (r.certificado) {
+        el.querySelector('.est-'+u.id)?.textContent = r.estado_sanidad;
+        el.querySelector('.ven-'+u.id)?.textContent = r.certificado.fecha_vencimiento;
+        el.querySelector('.cod-'+u.id)?.textContent = r.certificado.codigo_certificado;
+      }
+    }).catch(() => {}));
+    el.querySelector('#btn-emit')?.addEventListener('click', async () => {
+      const d = await this.formModal('Emitir certificado', [
+        { id:'agente_id', label:'Agente', type:'select', options:[{value:'',label:'—'},...users.map(u=>({value:u.id,label:u.apellido+', '+u.nombre}))], required:true },
+        { id:'fecha_vencimiento', label:'Vencimiento', type:'date', required:true },
+        { id:'dictamen_global', label:'Dictamen', type:'select', options:[{value:'APTO',label:'APTO'},{value:'NO_APTO',label:'NO APTO'}], required:true }
+      ]);
+      if (!d) return;
+      const r = await API.emitirCertMedico({agente_id: Number(d.agente_id), fecha_vencimiento: d.fecha_vencimiento, dictamen_global: d.dictamen_global, tipo_examen: 'ingreso'});
+      alert('✔ '+r.codigo);
+      this.t_certificados_medicos(el);
+    });
+  }
 };
