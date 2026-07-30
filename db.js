@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS users (
   created_at    TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
+
 CREATE TABLE IF NOT EXISTS courses (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
   cod             TEXT UNIQUE NOT NULL,
