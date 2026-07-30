@@ -37,7 +37,6 @@ CREATE TABLE IF NOT EXISTS users (
   created_at    TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
-
 CREATE TABLE IF NOT EXISTS courses (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
   cod             TEXT UNIQUE NOT NULL,
@@ -236,105 +235,19 @@ CREATE TABLE IF NOT EXISTS dni_autorizados (
 
 CREATE TABLE IF NOT EXISTS certificates (
   -- firma_hash: firma electrónica del documento (Ley 25.506)
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  course_id  INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-  code       TEXT UNIQUE NOT NULL,
-  score_pct  REAL NOT NULL,
-  vencimiento TEXT,                 -- NULL = sin vencimiento
-  issued_at  TEXT NOT NULL DEFAULT (datetime('now','localtime')),
-  anulado    INTEGER NOT NULL DEFAULT 0,
-  observaciones TEXT NOT NULL DEFAULT '',
-  firma_hash TEXT NOT NULL DEFAULT '',   -- firma electrónica del documento (Ley 25.506)
-enrollment_id INTEGER REFERENCES enrollments(id),  -- ciclo/cursada exacta que originó este certificado
-  numero_credencial TEXT UNIQUE,  -- número único de credencial (vinculado a QR)
-  clinical_exam_id INTEGER REFERENCES clinical_exams(id),  -- vinculación con exámenes clínicos
-  vigencia_meses INTEGER NOT NULL DEFAULT 12  -- meses de validez para calcular vencimiento automático
-  
-  );
--- Profesionales de Sanidad (para firmar parámetros)
-CREATE TABLE IF NOT EXISTS health_professionals (
-  id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  matricula     TEXT UNIQUE NOT NULL,
-  nombre        TEXT NOT NULL,
-  apellido      TEXT NOT NULL,
-  especialidad  TEXT NOT NULL DEFAULT '',
-  firma_digital TEXT NOT NULL DEFAULT '',  -- dato biométrico/digital de la firma
-  activo        INTEGER NOT NULL DEFAULT 1,
-  created_at    TEXT NOT NULL DEFAULT (datetime('now','localtime'))
-);
-
--- Parámetros Clínicos Predefinidos (banco de parámetros)
-CREATE TABLE IF NOT EXISTS clinical_parameters (
-  id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  tipo_examen  TEXT NOT NULL,  -- 'Radiografía', 'Laboratorio', 'Psicotécnico', etc.
-  codigo       TEXT UNIQUE NOT NULL,
-  nombre       TEXT NOT NULL,
-  descripcion  TEXT NOT NULL DEFAULT '',
-  unidad       TEXT NOT NULL DEFAULT '',  -- 'mm', 'mg/dl', etc.
-  rango_minimo REAL,
-  rango_maximo REAL,
-  normal_desde TEXT,  -- 'rango de normalidad' si aplica
-  normal_hasta TEXT,
-  activo       INTEGER NOT NULL DEFAULT 1,
-  orden        INTEGER NOT NULL DEFAULT 0,
-  created_at   TEXT NOT NULL DEFAULT (datetime('now','localtime'))
-);
-
--- Exámenes Clínicos (una cursada/evaluación puede tener múltiples exámenes)
-CREATE TABLE IF NOT EXISTS clinical_exams (
-  id              INTEGER PRIMARY KEY AUTOINCREMENT,
-  enrollment_id   INTEGER NOT NULL REFERENCES enrollments(id) ON DELETE CASCADE,
-  certificate_id  INTEGER REFERENCES certificates(id) ON DELETE CASCADE,
-  tipo_examen     TEXT NOT NULL,  -- 'Radiografía', 'Laboratorio', 'Psicotécnico'
-  fecha_examen    TEXT NOT NULL DEFAULT (date('now','localtime')),
-  observaciones   TEXT NOT NULL DEFAULT '',
-  estado          TEXT NOT NULL DEFAULT 'pendiente',  -- 'pendiente', 'en_proceso', 'completado'
-  created_at      TEXT NOT NULL DEFAULT (datetime('now','localtime')),
-  updated_at      TEXT NOT NULL DEFAULT (datetime('now','localtime'))
-);
-
--- Resultados Individuales de Parámetros Clínicos (con firma del profesional)
-CREATE TABLE IF NOT EXISTS clinical_exam_results (
-  id                   INTEGER PRIMARY KEY AUTOINCREMENT,
-  clinical_exam_id     INTEGER NOT NULL REFERENCES clinical_exams(id) ON DELETE CASCADE,
-  clinical_parameter_id INTEGER NOT NULL REFERENCES clinical_parameters(id) ON DELETE CASCADE,
-  valor_resultado      TEXT NOT NULL,  -- valor registrado
-  observaciones        TEXT NOT NULL DEFAULT '',
-  health_professional_id INTEGER REFERENCES health_professionals(id),
-  firma_electronica    TEXT NOT NULL DEFAULT '',  -- firma digital del profesional
-  fecha_firma          TEXT,
-  estado               TEXT NOT NULL DEFAULT 'pendiente',  -- 'pendiente', 'firmado', 'rechazado'
-  created_at           TEXT NOT NULL DEFAULT (datetime('now','localtime')),
-  updated_at           TEXT NOT NULL DEFAULT (datetime('now','localtime'))
-);
-
--- Indicadores del Perfil Psicotécnico
-CREATE TABLE IF NOT EXISTS psychometric_indicators (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  codigo      TEXT UNIQUE NOT NULL,
-  nombre      TEXT NOT NULL,
-  descripcion TEXT NOT NULL DEFAULT '',
-  categoria   TEXT NOT NULL DEFAULT '',  -- 'Atención', 'Personalidad', 'Aptitud física', etc.
-  activo      INTEGER NOT NULL DEFAULT 1,
-  orden       INTEGER NOT NULL DEFAULT 0,
-  created_at  TEXT NOT NULL DEFAULT (datetime('now','localtime'))
-);
-
--- Resultados del Perfil Psicotécnico (APTO/NO APTO por parámetro)
-CREATE TABLE IF NOT EXISTS psychometric_results (
-  id                      INTEGER PRIMARY KEY AUTOINCREMENT,
-  clinical_exam_id        INTEGER NOT NULL REFERENCES clinical_exams(id) ON DELETE CASCADE,
-  psychometric_indicator_id INTEGER NOT NULL REFERENCES psychometric_indicators(id) ON DELETE CASCADE,
-  resultado               TEXT NOT NULL,  -- 'APTO' | 'NO_APTO'
-  observaciones           TEXT NOT NULL DEFAULT '',
-  health_professional_id  INTEGER REFERENCES health_professionals(id),
-  firma_electronica       TEXT NOT NULL DEFAULT '',  -- firma del evaluador
-  fecha_firma             TEXT,
-  estado                  TEXT NOT NULL DEFAULT 'pendiente',  -- 'pendiente', 'firmado', 'rechazado'
-  created_at              TEXT NOT NULL DEFAULT (datetime('now','localtime')),
-  updated_at              TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  course_id        INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  code             TEXT UNIQUE NOT NULL,
+  score_pct        REAL NOT NULL,
+  vencimiento      TEXT,                 -- NULL = sin vencimiento
+  issued_at        TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  anulado          INTEGER NOT NULL DEFAULT 0,
+  observaciones    TEXT NOT NULL DEFAULT '',
+  firma_hash       TEXT NOT NULL DEFAULT '',   -- firma electrónica del documento (Ley 25.506)
+  enrollment_id    INTEGER REFERENCES enrollments(id),  -- ciclo/cursada exacta que originó este certificado
+  numero_credencial TEXT,               -- número único de credencial CRED-XXXXX-AAAA-NNNN
+  clinical_exam_id  INTEGER             -- FK al examen clínico asociado (si aplica)
 );
 
 -- Libro de Aula y Asistencia
@@ -601,6 +514,44 @@ CREATE TABLE IF NOT EXISTS destino_notificaciones (
   created_at  TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 CREATE INDEX IF NOT EXISTS idx_dest_notif_para ON destino_notificaciones(para_user, leida);
+
+-- ══════════════════════════════════════════════════════════════════════
+-- MÓDULO SANIDAD: Certificados Médicos (Aptitud Psicofísica Operativa)
+-- ══════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS certificados_medicos (
+  id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+  agente_id            INTEGER NOT NULL REFERENCES users(id),
+  tipo_examen          TEXT NOT NULL DEFAULT 'ingreso'
+                       CHECK (tipo_examen IN ('ingreso','periodico','reincorporacion','especial')),
+  fecha_vencimiento    TEXT NOT NULL,
+  dictamen_global      TEXT NOT NULL CHECK (dictamen_global IN ('APTO','NO_APTO','APTO_CON_RESTRICCIONES')),
+  codigo_certificado   TEXT UNIQUE NOT NULL,   -- MED-XXXXX-AAAA-NNNN
+  hash_sha256          TEXT NOT NULL DEFAULT '',
+  hash_truncado        TEXT NOT NULL DEFAULT '',
+  profesional_emisor_id INTEGER REFERENCES users(id),
+  uosp_id              INTEGER REFERENCES uosps(id),
+  region_id            INTEGER,
+  observaciones        TEXT NOT NULL DEFAULT '',
+  es_activo            INTEGER NOT NULL DEFAULT 1,
+  created_at           TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_cert_med_agente ON certificados_medicos(agente_id, es_activo);
+
+-- Exámenes clínicos individuales vinculados a un enrollment
+CREATE TABLE IF NOT EXISTS clinical_exams (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  enrollment_id INTEGER NOT NULL REFERENCES enrollments(id) ON DELETE CASCADE,
+  user_id       INTEGER NOT NULL REFERENCES users(id),
+  tipo          TEXT NOT NULL DEFAULT 'pre_curso',
+  resultado     TEXT NOT NULL DEFAULT 'pendiente'
+                CHECK (resultado IN ('pendiente','apto','no_apto')),
+  observaciones TEXT NOT NULL DEFAULT '',
+  fecha         TEXT NOT NULL DEFAULT (date('now','localtime')),
+  firmado_por   INTEGER REFERENCES users(id),
+  firma_hash    TEXT NOT NULL DEFAULT '',
+  created_at    TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
 `);
 
 /* ---------------- Semillas ---------------- */
@@ -675,6 +626,52 @@ try {
   }
 } catch(e) { console.warn('Mig ciclo/activo tablas relacionadas:', e.message); }
 
+// Migración: estado_sanidad en users
+try {
+  const uc = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
+  if (!uc.includes('estado_sanidad')) {
+    db.prepare("ALTER TABLE users ADD COLUMN estado_sanidad TEXT NOT NULL DEFAULT 'PENDIENTE_EVALUACION'").run();
+    console.log('✔ users.estado_sanidad migrado');
+  }
+} catch(e) { console.warn('Mig users.estado_sanidad:', e.message); }
+
+// Migración: tabla certificados_medicos (por si la BD es anterior al CREATE TABLE IF NOT EXISTS)
+try {
+  db.prepare(`CREATE TABLE IF NOT EXISTS certificados_medicos (
+    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    agente_id             INTEGER NOT NULL REFERENCES users(id),
+    tipo_examen           TEXT NOT NULL DEFAULT 'ingreso',
+    fecha_vencimiento     TEXT NOT NULL,
+    dictamen_global       TEXT NOT NULL,
+    codigo_certificado    TEXT UNIQUE NOT NULL,
+    hash_sha256           TEXT NOT NULL DEFAULT '',
+    hash_truncado         TEXT NOT NULL DEFAULT '',
+    profesional_emisor_id INTEGER REFERENCES users(id),
+    uosp_id               INTEGER REFERENCES uosps(id),
+    region_id             INTEGER,
+    observaciones         TEXT NOT NULL DEFAULT '',
+    es_activo             INTEGER NOT NULL DEFAULT 1,
+    created_at            TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  )`).run();
+  db.prepare("CREATE INDEX IF NOT EXISTS idx_cert_med_agente ON certificados_medicos(agente_id, es_activo)").run();
+} catch(e) { console.warn('Mig certificados_medicos:', e.message); }
+
+// Migración: tabla clinical_exams
+try {
+  db.prepare(`CREATE TABLE IF NOT EXISTS clinical_exams (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    enrollment_id INTEGER NOT NULL REFERENCES enrollments(id) ON DELETE CASCADE,
+    user_id       INTEGER NOT NULL REFERENCES users(id),
+    tipo          TEXT NOT NULL DEFAULT 'pre_curso',
+    resultado     TEXT NOT NULL DEFAULT 'pendiente',
+    observaciones TEXT NOT NULL DEFAULT '',
+    fecha         TEXT NOT NULL DEFAULT (date('now','localtime')),
+    firmado_por   INTEGER REFERENCES users(id),
+    firma_hash    TEXT NOT NULL DEFAULT '',
+    created_at    TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  )`).run();
+} catch(e) { console.warn('Mig clinical_exams:', e.message); }
+
 // Migración: agregar enrollment_id a certificates (para resolver sin ambigüedad la firma del instructor)
 try {
   const certCols = db.prepare("PRAGMA table_info(certificates)").all().map(c => c.name);
@@ -686,7 +683,17 @@ try {
     ) WHERE enrollment_id IS NULL`).run();
     console.log('✔ certificates.enrollment_id migrado y completado retroactivamente');
   }
-} catch(e) { console.warn('Mig certificates.enrollment_id:', e.message); }
+  // Migración: numero_credencial en certificates
+  if (!certCols.includes('numero_credencial')) {
+    db.prepare("ALTER TABLE certificates ADD COLUMN numero_credencial TEXT").run();
+    console.log('✔ certificates.numero_credencial migrado');
+  }
+  // Migración: clinical_exam_id en certificates
+  if (!certCols.includes('clinical_exam_id')) {
+    db.prepare("ALTER TABLE certificates ADD COLUMN clinical_exam_id INTEGER").run();
+    console.log('✔ certificates.clinical_exam_id migrado');
+  }
+} catch(e) { console.warn('Mig certificates:', e.message); }
 
 // Migración: crear tabla login_attempts si no existe (rate-limiting)
 try {
@@ -1421,8 +1428,8 @@ const stmts = {
   pracSetUse: db.prepare(`UPDATE practical_sessions SET used = 1 WHERE id = ?`),
 
   // certificados
-  insertCert: db.prepare(`INSERT INTO certificates (user_id,course_id,code,score_pct,vencimiento,enrollment_id)
-                          VALUES (@user_id,@course_id,@code,@score_pct,@vencimiento,@enrollment_id)`),
+  insertCert: db.prepare(`INSERT INTO certificates (user_id,course_id,code,score_pct,vencimiento,enrollment_id,numero_credencial,clinical_exam_id)
+                          VALUES (@user_id,@course_id,@code,@score_pct,@vencimiento,@enrollment_id,@numero_credencial,@clinical_exam_id)`),
   certByCode: db.prepare(`SELECT c.*, u.nombre, u.apellido, u.rango, u.legajo, u.dni, u.organismo,
                                  co.cod AS curso_cod, co.nombre AS curso_nombre, co.horas
                           FROM certificates c
@@ -1478,165 +1485,4 @@ const stmts = {
     ORDER BY c.vencimiento ASC`)
 };
 
-// ─── FUNCIONES HELPER PARA CERTIFICADOS Y PARÁMETROS CLÍNICOS ───
-
-/**
- * Calcular vencimiento automático
- * @param {string} issued_at - fecha de emisión (formato ISO)
- * @param {number} vigencia_meses - meses de validez
- * @returns {string} fecha de vencimiento (formato ISO)
- */
-function calcularVencimiento(issued_at, vigencia_meses = 12) {
-  const fecha = new Date(issued_at);
-  fecha.setMonth(fecha.getMonth() + vigencia_meses);
-  return fecha.toISOString().split('T')[0];
-}
-
-/**
- * Generar número de credencial único
- * Formato: PSA-YYYYMM-XXXXX (donde XXXXX es número secuencial)
- * @returns {string} número de credencial
- */
-function generarNumeroCredencial() {
-  const ahora = new Date();
-  const año = ahora.getFullYear();
-  const mes = String(ahora.getMonth() + 1).padStart(2, '0');
-  const secuencial = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
-  return `PSA-${año}${mes}-${secuencial}`;
-}
-
-/**
- * Obtener parámetros clínicos por tipo de examen
- * @param {string} tipo_examen - tipo de examen ('Radiografía', 'Laboratorio', 'Psicotécnico')
- * @returns {Array} lista de parámetros
- */
-function obtenerParametrosPorTipo(tipo_examen) {
-  const stmt = db.prepare(`
-    SELECT id, codigo, nombre, descripcion, unidad, rango_minimo, rango_maximo
-    FROM clinical_parameters
-    WHERE tipo_examen = ? AND activo = 1
-    ORDER BY orden ASC
-  `);
-  return stmt.all(tipo_examen);
-}
-
-/**
- * Obtener indicadores psicotécnicos
- * @returns {Array} lista de indicadores
- */
-function obtenerIndicadoresPsicotecnicos() {
-  const stmt = db.prepare(`
-    SELECT id, codigo, nombre, descripcion, categoria
-    FROM psychometric_indicators
-    WHERE activo = 1
-    ORDER BY orden ASC
-  `);
-  return stmt.all();
-}
-
-/**
- * Crear examen clínico con sus parámetros
- * @param {number} enrollment_id - ID de inscripción
- * @param {string} tipo_examen - tipo de examen
- * @param {string} observaciones - observaciones iniciales
- * @returns {number} ID del examen creado
- */
-function crearExamenClinico(enrollment_id, tipo_examen, observaciones = '') {
-  const stmt = db.prepare(`
-    INSERT INTO clinical_exams (enrollment_id, tipo_examen, observaciones, estado)
-    VALUES (?, ?, ?, 'pendiente')
-  `);
-  const result = stmt.run(enrollment_id, tipo_examen, observaciones);
-  return result.lastInsertRowid;
-}
-
-/**
- * Registrar resultado de parámetro clínico con firma
- * @param {number} clinical_exam_id - ID del examen
- * @param {number} clinical_parameter_id - ID del parámetro
- * @param {string} valor_resultado - valor del resultado
- * @param {number} health_professional_id - ID del profesional que firma
- * @param {string} firma_electronica - firma digital del profesional
- * @param {string} observaciones - observaciones
- * @returns {number} ID del resultado creado
- */
-function registrarResultadoClinico(clinical_exam_id, clinical_parameter_id, valor_resultado, health_professional_id, firma_electronica, observaciones = '') {
-  const fecha_firma = new Date().toISOString().split('T')[0];
-  const stmt = db.prepare(`
-    INSERT INTO clinical_exam_results 
-    (clinical_exam_id, clinical_parameter_id, valor_resultado, health_professional_id, firma_electronica, observaciones, fecha_firma, estado)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 'firmado')
-  `);
-  const result = stmt.run(clinical_exam_id, clinical_parameter_id, valor_resultado, health_professional_id, firma_electronica, observaciones, fecha_firma);
-  return result.lastInsertRowid;
-}
-
-/**
- * Registrar resultado psicotécnico (APTO/NO APTO) con firma
- * @param {number} clinical_exam_id - ID del examen
- * @param {number} psychometric_indicator_id - ID del indicador
- * @param {string} resultado - 'APTO' o 'NO_APTO'
- * @param {number} health_professional_id - ID del evaluador
- * @param {string} firma_electronica - firma del evaluador
- * @param {string} observaciones - observaciones
- * @returns {number} ID del resultado creado
- */
-function registrarResultadoPsicotecnico(clinical_exam_id, psychometric_indicator_id, resultado, health_professional_id, firma_electronica, observaciones = '') {
-  if (!['APTO', 'NO_APTO'].includes(resultado)) {
-    throw new Error('Resultado debe ser APTO o NO_APTO');
-  }
-  const fecha_firma = new Date().toISOString().split('T')[0];
-  const stmt = db.prepare(`
-    INSERT INTO psychometric_results 
-    (clinical_exam_id, psychometric_indicator_id, resultado, health_professional_id, firma_electronica, observaciones, fecha_firma, estado)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 'firmado')
-  `);
-  const result = stmt.run(clinical_exam_id, psychometric_indicator_id, resultado, health_professional_id, firma_electronica, observaciones, fecha_firma);
-  return result.lastInsertRowid;
-}
-
-module.exports = { 
-  db, 
-  stats,
-  calcularVencimiento,
-  generarNumeroCredencial,
-  obtenerParametrosPorTipo,
-  obtenerIndicadoresPsicotecnicos,
-  crearExamenClinico,
-  registrarResultadoClinico,
-  registrarResultadoPsicotecnico
-};// --- MÓDULO SANIDAD / APTITUD PSICOFÍSICA ---
-db.exec(`
-  ALTER TABLE users ADD COLUMN estado_sanidad TEXT DEFAULT 'PENDIENTE_EVALUACION';
-`).catch(() => {});
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS certificados_medicos (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    agente_id INTEGER NOT NULL,
-    tipo_examen TEXT NOT NULL,
-    fecha_emision DATETIME DEFAULT CURRENT_TIMESTAMP,
-    fecha_vencimiento DATE NOT NULL,
-    dictamen_global TEXT NOT NULL,
-    codigo_certificado TEXT UNIQUE NOT NULL,
-    hash_sha256 TEXT NOT NULL,
-    hash_truncado TEXT NOT NULL,
-    profesional_emisor_id INTEGER NOT NULL,
-    uosp_id INTEGER NOT NULL,
-    region_id INTEGER NOT NULL,
-    es_activo BOOLEAN DEFAULT 1
-  );
-
-  CREATE TABLE IF NOT EXISTS estudios_medicos (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    certificado_id INTEGER NOT NULL,
-    tipo_modulo TEXT NOT NULL,
-    resultado TEXT NOT NULL,
-    observaciones TEXT,
-    profesional_id INTEGER NOT NULL,
-    matricula TEXT NOT NULL,
-    especialidad TEXT NOT NULL,
-    fecha_hora_firma DATETIME DEFAULT CURRENT_TIMESTAMP,
-    uosp_id INTEGER NOT NULL
-  );
-`);
+module.exports = { db, stmts };

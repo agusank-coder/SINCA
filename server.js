@@ -16,11 +16,6 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const { db, stmts } = require('./db');
-const { seedClinicos } = require('./seed_clinicos');
-
-// Al iniciar, cargar datos de parámetros clínicos
-seedClinicos();
-
 
 /* Parche de CHECK de roles — ya no necesario (CHECK eliminado del schema).
    La validación de roles vive exclusivamente en server.js (validRoles).
@@ -1758,67 +1753,81 @@ function epptHorasFirmadas(epptId) {
     .reduce((s, e) => s + e.horas, 0);
 }
 
+/**
+ * Genera número único de credencial con formato institucional.
+ * Formato: CRED-XXXXX-AAAA-NNNN (mismo patrón que generarNumDoc)
+ */
+function generarNumeroCredencial() {
+  const anio = new Date().getFullYear();
+  return generarNumDoc('CRED', anio);
+}
+
+/**
+ * Calcula fecha de vencimiento sumando meses a una fecha base.
+ * @param {string} fechaInicio - ISO date (YYYY-MM-DD)
+ * @param {number} meses - Meses de vigencia
+ * @returns {string|null} ISO date del vencimiento, o null si meses <= 0
+ */
+function calcularVencimiento(fechaInicio, meses) {
+  if (!meses || meses <= 0) return null;
+  const fecha = new Date(fechaInicio + 'T00:00:00Z');
+  fecha.setUTCMonth(fecha.getUTCMonth() + meses);
+  return fecha.toISOString().slice(0, 10);
+}
+
+/** Emite el certificado con FIRMA ELECTRÓNICA institucional (hash verificable, Ley 25.506). */
 function emitCertificate(userId, enr, c, atts) {
-  const code = 'ISSA-' + c.cod.replace(/[^0-9A]/g, '') + '-' + 
-               crypto.randomBytes(4).toString('hex').toUpperCase();
-  
+  const code = 'ISSA-' + c.cod.replace(/[^0-9A]/g, '') + '-' + crypto.randomBytes(4).toString('hex').toUpperCase();
+
   const scores = atts.filter(a => a.passed).map(a => a.score_pct);
-  const finalScore = Math.round(
-    (scores.reduce((s, x) => s + x, 0) / Math.max(1, scores.length)) * 10
-  ) / 10;
-  
-  const numero_credencial = generarNumeroCredencial();
+  const finalScore = Math.round((scores.reduce((s, x) => s + x, 0) / Math.max(1, scores.length)) * 10) / 10;
+
   const issued_at = new Date().toISOString().slice(0, 10);
-  const vencimiento = c.vigencia_meses > 0 
-    ? calcularVencimiento(issued_at, c.vigencia_meses) 
-    : null;
-  
-  const clinicalExam = db.prepare(
-    'SELECT id FROM clinical_exams WHERE enrollment_id = ? ORDER BY id DESC LIMIT 1'
-  ).get(enr.id);
-  
-  // Insertar certificado
-  stmts.insertCert.run({ 
-    user_id: userId, 
-    course_id: c.id, 
-    code, 
-    score_pct: finalScore, 
-    vencimiento,
+  const venc = calcularVencimiento(issued_at, c.vigencia_meses);
+
+  // Número de credencial único (correlativo CRED-XXXXX-AAAA-NNNN)
+  const numero_credencial = generarNumeroCredencial();
+
+  // Examen clínico asociado al enrollment (si existe)
+  let clinical_exam_id = null;
+  try {
+    const clinicalExam = db.prepare(
+      'SELECT id FROM clinical_exams WHERE enrollment_id = ? ORDER BY id DESC LIMIT 1'
+    ).get(enr.id);
+    clinical_exam_id = clinicalExam?.id || null;
+  } catch { /* tabla optional — no romper si no existe */ }
+
+  // Insertar certificado con todos los campos
+  stmts.insertCert.run({
+    user_id: userId,
+    course_id: c.id,
+    code,
+    score_pct: finalScore,
+    vencimiento: venc,
     enrollment_id: enr.id,
     numero_credencial,
-    clinical_exam_id: clinicalExam?.id || null
+    clinical_exam_id
   });
-  
-  // Calcular firma electrónica
+
+  // Firma electrónica SHA-256 (Ley 25.506)
   const u = stmts.userById.get(userId);
   const firma = crypto.createHash('sha256')
-    .update([code, u.dni || u.legajo, c.cod, finalScore, vencimiento || '', JWT_SECRET].join('|'))
+    .update([code, u.dni || u.legajo, c.cod, finalScore, venc || '', JWT_SECRET].join('|'))
     .digest('hex');
-  
   db.prepare('UPDATE certificates SET firma_hash = ? WHERE code = ?').run(firma, code);
-  
-  // Auditoría
-  AUDIT(userId, 'CERTIFICADO_EMITIDO', 
-    `${c.cod} ${code} vence:${vencimiento || 'sin vencimiento'} · credencial:${numero_credencial} · firma:${firma.slice(0, 12)}…`);
-  
-  // Registrar en correlativo (con manejo de errores mejorado)
+
+  AUDIT(userId, 'CERTIFICADO_EMITIDO',
+    `${c.cod} ${code} vence:${venc || 'sin vencimiento'} · credencial:${numero_credencial} · firma:${firma.slice(0, 12)}…`);
+
+  // Registro correlativo de documentos
   try {
     const anio = new Date().getFullYear();
     const numDoc = generarNumDoc('CERT', anio);
     stmts.insertRegDoc.run('certificado', numDoc, userId, c.id, code, userId);
   } catch (err) {
     console.warn(`⚠️ No se registró correlativo para certificado ${code}:`, err.message);
-    // No falla la emisión, solo el registro administrativo
   }
-  
-  return stmts.certByCode.get(code);
-}
-  
-  try {
-    const anio = new Date().getFullYear();
-    const numDoc = generarNumDoc('CERT', anio);
-    stmts.insertRegDoc.run('certificado', numDoc, userId, c.id, code, userId);
-  } catch {}
+
   return stmts.certByCode.get(code);
 }
 
@@ -4539,332 +4548,7 @@ app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.ht
 // todos los roles nuevos (sanidad, juosp, juosp_regional, fiscalizador) en cada arranque.
 // La validación de roles vive exclusivamente en validRoles dentro del endpoint de cambio de rol.
 
-// ─── ENDPOINTS PARA PARÁMETROS CLÍNICOS Y PSICOTÉCNICOS ───
 
-/**
- * POST /api/examen-clinico/crear
- * Crear nuevo examen clínico
- */
-app.post('/api/examen-clinico/crear', (req, res) => {
-  try {
-    const { enrollment_id, tipo_examen, observaciones } = req.body;
-    
-    if (!enrollment_id || !tipo_examen) {
-      return res.status(400).json({ error: 'enrollment_id y tipo_examen requeridos' });
-    }
-    
-    const { crearExamenClinico } = require('./db');
-    const exam_id = crearExamenClinico(enrollment_id, tipo_examen, observaciones || '');
-    
-    res.json({ success: true, exam_id });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * GET /api/parametros-clinicos/:tipo_examen
- * Obtener parámetros clínicos por tipo de examen
- */
-app.get('/api/parametros-clinicos/:tipo_examen', (req, res) => {
-  try {
-    const { tipo_examen } = req.params;
-    const { obtenerParametrosPorTipo } = require('./db');
-    
-    const parametros = obtenerParametrosPorTipo(tipo_examen);
-    res.json({ success: true, parametros });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * POST /api/resultado-clinico/registrar
- * Registrar resultado de parámetro clínico con firma del profesional
- */
-app.post('/api/resultado-clinico/registrar', (req, res) => {
-  try {
-    const { 
-      clinical_exam_id, 
-      clinical_parameter_id, 
-      valor_resultado, 
-      health_professional_id, 
-      firma_electronica, 
-      observaciones 
-    } = req.body;
-    
-    if (!clinical_exam_id || !clinical_parameter_id || !valor_resultado || !health_professional_id || !firma_electronica) {
-      return res.status(400).json({ error: 'Campos requeridos: clinical_exam_id, clinical_parameter_id, valor_resultado, health_professional_id, firma_electronica' });
-    }
-    
-    const { registrarResultadoClinico } = require('./db');
-    const result_id = registrarResultadoClinico(
-      clinical_exam_id, 
-      clinical_parameter_id, 
-      valor_resultado, 
-      health_professional_id, 
-      firma_electronica, 
-      observaciones || ''
-    );
-    
-    res.json({ 
-      success: true, 
-      result_id,
-      mensaje: 'Resultado registrado y firmado correctamente'
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * GET /api/indicadores-psicotecnicos
- * Obtener indicadores del perfil psicotécnico
- */
-app.get('/api/indicadores-psicotecnicos', (req, res) => {
-  try {
-    const { obtenerIndicadoresPsicotecnicos } = require('./db');
-    const indicadores = obtenerIndicadoresPsicotecnicos();
-    
-    res.json({ success: true, indicadores });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * POST /api/resultado-psicotecnico/registrar
- * Registrar resultado psicotécnico (APTO/NO APTO) con firma del evaluador
- */
-app.post('/api/resultado-psicotecnico/registrar', (req, res) => {
-  try {
-    const { 
-      clinical_exam_id, 
-      psychometric_indicator_id, 
-      resultado, 
-      health_professional_id, 
-      firma_electronica, 
-      observaciones 
-    } = req.body;
-    
-    if (!clinical_exam_id || !psychometric_indicator_id || !resultado || !health_professional_id || !firma_electronica) {
-      return res.status(400).json({ error: 'Campos requeridos: clinical_exam_id, psychometric_indicator_id, resultado, health_professional_id, firma_electronica' });
-    }
-    
-    if (!['APTO', 'NO_APTO'].includes(resultado)) {
-      return res.status(400).json({ error: 'resultado debe ser APTO o NO_APTO' });
-    }
-    
-    const { registrarResultadoPsicotecnico } = require('./db');
-    const result_id = registrarResultadoPsicotecnico(
-      clinical_exam_id, 
-      psychometric_indicator_id, 
-      resultado, 
-      health_professional_id, 
-      firma_electronica, 
-      observaciones || ''
-    );
-    
-    res.json({ 
-      success: true, 
-      result_id,
-      resultado,
-      mensaje: `Evaluación registrada como ${resultado} y firmada correctamente`
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * POST /api/certificado/generar-numero
- * Generar número de credencial único
- */
-app.post('/api/certificado/generar-numero', (req, res) => {
-  try {
-    const { generarNumeroCredencial } = require('./db');
-    const numero_credencial = generarNumeroCredencial();
-    
-    res.json({ success: true, numero_credencial });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * POST /api/certificado/calcular-vencimiento
- * Calcular fecha de vencimiento automática
- */
-/**
- * GET /api/resultados-clinicos/:clinical_exam_id
- * Obtener resultados clínicos de un examen
- */
-app.get('/api/resultados-clinicos/:clinical_exam_id', (req, res) => {
-  try {
-    const { clinical_exam_id } = req.params;
-    const stmt = db.prepare(`
-      SELECT 
-        cer.id,
-        cer.valor_resultado,
-        cer.observaciones,
-        cp.nombre,
-        cp.unidad,
-        hp.nombre || ' ' || hp.apellido as health_professional,
-        cer.fecha_firma,
-        cer.firma_electronica
-      FROM clinical_exam_results cer
-      JOIN clinical_parameters cp ON cer.clinical_parameter_id = cp.id
-      LEFT JOIN health_professionals hp ON cer.health_professional_id = hp.id
-      WHERE cer.clinical_exam_id = ? AND cer.estado = 'firmado'
-      ORDER BY cp.orden ASC
-    `);
-    
-    const resultados = stmt.all(clinical_exam_id);
-    res.json({ success: true, resultados });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * GET /api/resultados-psicotecnico/:clinical_exam_id
- * Obtener resultados psicotécnico de un examen
- */
-app.get('/api/resultados-psicotecnico/:clinical_exam_id', (req, res) => {
-  try {
-    const { clinical_exam_id } = req.params;
-    const stmt = db.prepare(`
-      SELECT 
-        pr.id,
-        pr.resultado,
-        pr.observaciones,
-        pi.nombre,
-        pi.categoria,
-        hp.nombre || ' ' || hp.apellido as health_professional,
-        pr.fecha_firma,
-        pr.firma_electronica
-      FROM psychometric_results pr
-      JOIN psychometric_indicators pi ON pr.psychometric_indicator_id = pi.id
-      LEFT JOIN health_professionals hp ON pr.health_professional_id = hp.id
-      WHERE pr.clinical_exam_id = ? AND pr.estado = 'firmado'
-      ORDER BY pi.orden ASC
-    `);
-    
-    const resultados = stmt.all(clinical_exam_id);
-    res.json({ success: true, resultados });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * GET /api/certificado/:certificate_id
- * Obtener certificado completo con parámetros clínicos y psicotécnico
- */
-app.get('/api/certificado/:certificate_id', (req, res) => {
-  try {
-    const { certificate_id } = req.params;
-    
-    // Obtener datos base del certificado
-    const stmtCert = db.prepare(`
-      SELECT 
-        c.*,
-        u.nombre,
-        u.apellido,
-        u.dni,
-        u.legajo,
-        u.rango,
-        u.aeropuerto,
-        u.organismo,
-        co.cod as curso_cod,
-        co.nombre as curso_nombre,
-        co.horas
-      FROM certificates c
-      JOIN users u ON c.user_id = u.id
-      JOIN courses co ON c.course_id = co.id
-      WHERE c.id = ?
-    `);
-    
-    const certificado = stmtCert.get(certificate_id);
-    
-    if (!certificado) {
-      return res.status(404).json({ error: 'Certificado no encontrado' });
-    }
-    
-    // Obtener parámetros clínicos si existen
-    let parametros_clinicos = [];
-    if (certificado.clinical_exam_id) {
-      const stmtParams = db.prepare(`
-        SELECT 
-          cer.valor_resultado,
-          cer.observaciones,
-          cp.nombre,
-          cp.unidad,
-          hp.nombre || ' ' || hp.apellido as health_professional,
-          cer.fecha_firma
-        FROM clinical_exam_results cer
-        JOIN clinical_parameters cp ON cer.clinical_parameter_id = cp.id
-        LEFT JOIN health_professionals hp ON cer.health_professional_id = hp.id
-        WHERE cer.clinical_exam_id = ? AND cer.estado = 'firmado'
-        ORDER BY cp.orden ASC
-      `);
-      parametros_clinicos = stmtParams.all(certificado.clinical_exam_id);
-    }
-    
-    // Obtener resultados psicotécnico si existen
-    let psicotecnico = [];
-    if (certificado.clinical_exam_id) {
-      const stmtPsy = db.prepare(`
-        SELECT 
-          pr.resultado,
-          pr.observaciones,
-          pi.nombre,
-          pi.categoria,
-          hp.nombre || ' ' || hp.apellido as health_professional,
-          pr.fecha_firma
-        FROM psychometric_results pr
-        JOIN psychometric_indicators pi ON pr.psychometric_indicator_id = pi.id
-        LEFT JOIN health_professionals hp ON pr.health_professional_id = hp.id
-        WHERE pr.clinical_exam_id = ? AND pr.estado = 'firmado'
-        ORDER BY pi.orden ASC
-      `);
-      psicotecnico = stmtPsy.all(certificado.clinical_exam_id);
-    }
-    
-    res.json({ 
-      success: true, 
-      certificado: {
-        ...certificado,
-        parametros_clinicos,
-        psicotecnico
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post('/api/certificado/calcular-vencimiento', (req, res) => {
-  try {
-    const { issued_at, vigencia_meses } = req.body;
-    
-    if (!issued_at) {
-      return res.status(400).json({ error: 'issued_at requerido (formato ISO)' });
-    }
-    
-    const { calcularVencimiento } = require('./db');
-    const vencimiento = calcularVencimiento(issued_at, vigencia_meses || 12);
-    
-    res.json({ 
-      success: true, 
-      vencimiento,
-      issued_at,
-      vigencia_meses: vigencia_meses || 12
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 // Arrancar el servidor solo si se ejecuta directamente (node server.js),
 // NO si se importa desde los tests (require('./server'))
 if (require.main === module) {
@@ -4875,5 +4559,75 @@ if (require.main === module) {
     console.log(`✔ Usuario administrador: eheinrich`);
   });
 }
+
+// --- MÓDULO SANIDAD: Middleware de Bloqueo ---
+function verificarAptoSanidad(req, res, next) {
+  const user = req.user;
+  if (!user) return res.status(401).json({ error: 'No autorizado' });
+  if (user.estado_sanidad !== 'APTO_VIGENTE') {
+    return res.status(403).json({
+      error: 'ACCESO_BLOQUEADO_SANIDAD',
+      message: 'Requisito de Aptitud Psicofísica no válido o vencido. Contacte a Sanidad.',
+      estado_actual: user.estado_sanidad || 'PENDIENTE_EVALUACION'
+    });
+  }
+  next();
+}
+
+// --- MÓDULO SANIDAD: Endpoints de Gestión ---
+// ✅ CORREGIDO: agrega auth + roleAtLeast y usa SHA-256 real en lugar de string fake
+app.post('/api/sanidad/certificados', auth, roleAtLeast('admin', 'sanidad'), (req, res) => {
+  try {
+    const { agente_id, tipo_examen, fecha_vencimiento, dictamen_global, uosp_id, region_id } = req.body;
+    if (!agente_id || !tipo_examen || !fecha_vencimiento || !dictamen_global)
+      return res.status(400).json({ error: 'Faltan campos requeridos: agente_id, tipo_examen, fecha_vencimiento, dictamen_global.' });
+    if (!['APTO', 'NO_APTO'].includes(dictamen_global))
+      return res.status(400).json({ error: 'dictamen_global debe ser APTO o NO_APTO.' });
+
+    const profesional_emisor_id = req.user.id;
+    const anio = new Date().getFullYear();
+    // ✅ Código correlativo con el mismo patrón institucional
+    const codigo = generarNumDoc('MED', anio);
+    // ✅ Hash SHA-256 real (no string fake)
+    const hash_sha256 = crypto.createHash('sha256')
+      .update([codigo, agente_id, tipo_examen, dictamen_global, fecha_vencimiento, JWT_SECRET].join('|'))
+      .digest('hex');
+    const hash_truncado = hash_sha256.slice(0, 12);
+
+    db.prepare(`
+      INSERT INTO certificados_medicos
+      (agente_id, tipo_examen, fecha_vencimiento, dictamen_global, codigo_certificado, hash_sha256, hash_truncado, profesional_emisor_id, uosp_id, region_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(agente_id, tipo_examen, fecha_vencimiento, dictamen_global, codigo, hash_sha256, hash_truncado,
+           profesional_emisor_id, uosp_id || null, region_id || null);
+
+    const nuevoEstado = dictamen_global === 'APTO' ? 'APTO_VIGENTE' : 'NO_APTO';
+    db.prepare('UPDATE users SET estado_sanidad = ? WHERE id = ?').run(nuevoEstado, agente_id);
+
+    AUDIT(req.user.id, 'CERT_MEDICO_EMITIDO',
+      `agente:${agente_id} tipo:${tipo_examen} dictamen:${dictamen_global} cod:${codigo}`);
+
+    res.json({ ok: true, codigo, hash_truncado, estado_sanidad: nuevoEstado });
+  } catch (err) {
+    console.error('Error emitiendo certificado médico:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ✅ CORREGIDO: agrega auth
+app.get('/api/sanidad/certificados/agente/:agente_id', auth, roleAtLeast('admin', 'sanidad', 'fiscalizador'), (req, res) => {
+  try {
+    const cert = db.prepare(
+      'SELECT * FROM certificados_medicos WHERE agente_id = ? AND es_activo = 1 ORDER BY id DESC LIMIT 1'
+    ).get(Number(req.params.agente_id));
+    if (!cert) return res.json({ estado_sanidad: 'PENDIENTE_EVALUACION', certificado: null });
+    res.json({
+      estado_sanidad: cert.dictamen_global === 'APTO' ? 'APTO_VIGENTE' : 'NO_APTO',
+      certificado: cert
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 module.exports = { app, db, stmts };
