@@ -1478,8 +1478,134 @@ const stmts = {
     ORDER BY c.vencimiento ASC`)
 };
 
-module.exports = { db, stmts };
-// --- MÓDULO SANIDAD / APTITUD PSICOFÍSICA ---
+// ─── FUNCIONES HELPER PARA CERTIFICADOS Y PARÁMETROS CLÍNICOS ───
+
+/**
+ * Calcular vencimiento automático
+ * @param {string} issued_at - fecha de emisión (formato ISO)
+ * @param {number} vigencia_meses - meses de validez
+ * @returns {string} fecha de vencimiento (formato ISO)
+ */
+function calcularVencimiento(issued_at, vigencia_meses = 12) {
+  const fecha = new Date(issued_at);
+  fecha.setMonth(fecha.getMonth() + vigencia_meses);
+  return fecha.toISOString().split('T')[0];
+}
+
+/**
+ * Generar número de credencial único
+ * Formato: PSA-YYYYMM-XXXXX (donde XXXXX es número secuencial)
+ * @returns {string} número de credencial
+ */
+function generarNumeroCredencial() {
+  const ahora = new Date();
+  const año = ahora.getFullYear();
+  const mes = String(ahora.getMonth() + 1).padStart(2, '0');
+  const secuencial = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
+  return `PSA-${año}${mes}-${secuencial}`;
+}
+
+/**
+ * Obtener parámetros clínicos por tipo de examen
+ * @param {string} tipo_examen - tipo de examen ('Radiografía', 'Laboratorio', 'Psicotécnico')
+ * @returns {Array} lista de parámetros
+ */
+function obtenerParametrosPorTipo(tipo_examen) {
+  const stmt = db.prepare(`
+    SELECT id, codigo, nombre, descripcion, unidad, rango_minimo, rango_maximo
+    FROM clinical_parameters
+    WHERE tipo_examen = ? AND activo = 1
+    ORDER BY orden ASC
+  `);
+  return stmt.all(tipo_examen);
+}
+
+/**
+ * Obtener indicadores psicotécnicos
+ * @returns {Array} lista de indicadores
+ */
+function obtenerIndicadoresPsicotecnicos() {
+  const stmt = db.prepare(`
+    SELECT id, codigo, nombre, descripcion, categoria
+    FROM psychometric_indicators
+    WHERE activo = 1
+    ORDER BY orden ASC
+  `);
+  return stmt.all();
+}
+
+/**
+ * Crear examen clínico con sus parámetros
+ * @param {number} enrollment_id - ID de inscripción
+ * @param {string} tipo_examen - tipo de examen
+ * @param {string} observaciones - observaciones iniciales
+ * @returns {number} ID del examen creado
+ */
+function crearExamenClinico(enrollment_id, tipo_examen, observaciones = '') {
+  const stmt = db.prepare(`
+    INSERT INTO clinical_exams (enrollment_id, tipo_examen, observaciones, estado)
+    VALUES (?, ?, ?, 'pendiente')
+  `);
+  const result = stmt.run(enrollment_id, tipo_examen, observaciones);
+  return result.lastInsertRowid;
+}
+
+/**
+ * Registrar resultado de parámetro clínico con firma
+ * @param {number} clinical_exam_id - ID del examen
+ * @param {number} clinical_parameter_id - ID del parámetro
+ * @param {string} valor_resultado - valor del resultado
+ * @param {number} health_professional_id - ID del profesional que firma
+ * @param {string} firma_electronica - firma digital del profesional
+ * @param {string} observaciones - observaciones
+ * @returns {number} ID del resultado creado
+ */
+function registrarResultadoClinico(clinical_exam_id, clinical_parameter_id, valor_resultado, health_professional_id, firma_electronica, observaciones = '') {
+  const fecha_firma = new Date().toISOString().split('T')[0];
+  const stmt = db.prepare(`
+    INSERT INTO clinical_exam_results 
+    (clinical_exam_id, clinical_parameter_id, valor_resultado, health_professional_id, firma_electronica, observaciones, fecha_firma, estado)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'firmado')
+  `);
+  const result = stmt.run(clinical_exam_id, clinical_parameter_id, valor_resultado, health_professional_id, firma_electronica, observaciones, fecha_firma);
+  return result.lastInsertRowid;
+}
+
+/**
+ * Registrar resultado psicotécnico (APTO/NO APTO) con firma
+ * @param {number} clinical_exam_id - ID del examen
+ * @param {number} psychometric_indicator_id - ID del indicador
+ * @param {string} resultado - 'APTO' o 'NO_APTO'
+ * @param {number} health_professional_id - ID del evaluador
+ * @param {string} firma_electronica - firma del evaluador
+ * @param {string} observaciones - observaciones
+ * @returns {number} ID del resultado creado
+ */
+function registrarResultadoPsicotecnico(clinical_exam_id, psychometric_indicator_id, resultado, health_professional_id, firma_electronica, observaciones = '') {
+  if (!['APTO', 'NO_APTO'].includes(resultado)) {
+    throw new Error('Resultado debe ser APTO o NO_APTO');
+  }
+  const fecha_firma = new Date().toISOString().split('T')[0];
+  const stmt = db.prepare(`
+    INSERT INTO psychometric_results 
+    (clinical_exam_id, psychometric_indicator_id, resultado, health_professional_id, firma_electronica, observaciones, fecha_firma, estado)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'firmado')
+  `);
+  const result = stmt.run(clinical_exam_id, psychometric_indicator_id, resultado, health_professional_id, firma_electronica, observaciones, fecha_firma);
+  return result.lastInsertRowid;
+}
+
+module.exports = { 
+  db, 
+  stats,
+  calcularVencimiento,
+  generarNumeroCredencial,
+  obtenerParametrosPorTipo,
+  obtenerIndicadoresPsicotecnicos,
+  crearExamenClinico,
+  registrarResultadoClinico,
+  registrarResultadoPsicotecnico
+};// --- MÓDULO SANIDAD / APTITUD PSICOFÍSICA ---
 db.exec(`
   ALTER TABLE users ADD COLUMN estado_sanidad TEXT DEFAULT 'PENDIENTE_EVALUACION';
 `).catch(() => {});
