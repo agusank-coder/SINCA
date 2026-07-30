@@ -104,14 +104,13 @@ const Gestion = {
       ],
       sanidad: [
         { seccion: 'Sanidad / Módulo Médico', icono: '🏥', items: [
-         { k:'apto_medico', t:'Aptitud Psicofísica', i:'🏥' },
-{ k:'certificados_medicos', t:'Certificados Médicos', i:'📜' },
+          { k:'apto_medico', t:'Aptitud Psicofísica', i:'🏥' },
+          { k:'certificados_medicos', t:'Certificados Médicos', i:'📜' },
         ]},
       ],
       medico: [
         { seccion: 'Sanidad / Módulo Médico', icono: '🏥', items: [
           { k:'apto_medico', t:'Aptitud Psicofísica', i:'🏥' },
-{ k:'certificados_medicos', t:'Certificados Médicos', i:'📜' },
         ]},
       ],
       juosp: [
@@ -3377,111 +3376,6 @@ const Gestion = {
       this._auditFiltros.accion = document.getElementById('aud-accion').value;
       this._auditFiltros.limit = Number(document.getElementById('aud-limit').value);
       this.t_auditoria(el);
-    /* ══ MÓDULO SANIDAD: Certificados Médicos ══════════════════════ */
-  async t_certificados_medicos(el) {
-    const esAdmin = this.isAdmin();
-    const esSanidad = ['sanidad','admin'].includes(API.user?.role);
-    
-    el.innerHTML = '<p class="hint">Cargando…</p>';
-    
-    // Cargar lista de usuarios
-    const { users } = await API.adminUsers().catch(() => ({ users: [] }));
-    
-    el.innerHTML = `
-      <h2 style="margin-bottom:6px">Certificados Médicos</h2>
-      <p class="hint" style="margin-bottom:16px">Emisión y gestión de certificados de aptitud operativa (Ley 25.506).</p>
-      
-      ${esSanidad ? `<div class="filter-row" style="margin-bottom:16px">
-        <input id="cert-med-buscar" placeholder="Buscar por apellido, legajo…" style="flex:1">
-        <button class="btn-primary" id="btn-nuevo-cert-med" style="width:auto">+ Emitir certificado</button>
-      </div>` : ''}
-      
-      <table class="list-table">
-        <thead><tr>
-          <th>Agente</th>
-          <th>Legajo</th>
-          <th>Organismo</th>
-          <th>Estado Sanidad</th>
-          <th>Vigencia</th>
-          <th>Certificado</th>
-          <th></th>
-        </tr></thead>
-        <tbody id="cert-med-tbody">
-          ${users.map(u => `<tr data-user-id="${u.id}">
-            <td><b>${u.apellido}, ${u.nombre}</b></td>
-            <td class="mono">${u.legajo}</td>
-            <td>${u.organismo}</td>
-            <td><span class="estado-sanidad" data-uid="${u.id}" style="font-weight:600">—</span></td>
-            <td><span class="vence-sanidad" data-uid="${u.id}">—</span></td>
-            <td><span class="cert-med-cod" data-uid="${u.id}" style="font-size:11px;color:var(--muted)">—</span></td>
-            <td><button class="btn-ghost" data-view-cert-med="${u.id}" style="font-size:12px">Ver</button></td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-    `;
-    
-    // Cargar estado de cada usuario
-    users.forEach(u => {
-      API.getCertMedicoAgente(u.id).then(r => {
-        const estEl = el.querySelector(`[data-uid="${u.id}"].estado-sanidad`);
-        const venceEl = el.querySelector(`[data-uid="${u.id}"].vence-sanidad`);
-        const codEl = el.querySelector(`[data-uid="${u.id}"].cert-med-cod`);
-        
-        if (r.certificado) {
-          estEl.textContent = r.estado_sanidad || 'PENDIENTE';
-          estEl.style.color = r.estado_sanidad === 'APTO_VIGENTE' ? 'var(--ok)' : 'var(--alert)';
-          venceEl.textContent = r.certificado.fecha_vencimiento || '—';
-          codEl.textContent = r.certificado.codigo_certificado || '—';
-        } else {
-          estEl.textContent = 'PENDIENTE';
-          estEl.style.color = 'var(--muted)';
-        }
-      }).catch(() => {
-        el.querySelector(`[data-uid="${u.id}"].estado-sanidad`).textContent = 'ERROR';
-      });
-    });
-    
-    // Emitir nuevo certificado
-    el.getElementById('btn-nuevo-cert-med')?.addEventListener('click', async () => {
-      const d = await this.formModal('Emitir certificado médico', [
-        { id:'agente_id', label:'Agente', type:'select',
-          options:[{value:'',label:'Seleccionar…'},...users.map(u=>({value:u.id,label:u.apellido+', '+u.nombre+' ('+u.legajo+')'}))], required:true },
-        { id:'tipo_examen', label:'Tipo de examen', type:'select',
-          options:[{value:'ingreso',label:'Ingreso'},{value:'periodico',label:'Periódico'},{value:'reincorporacion',label:'Reincorporación'},{value:'especial',label:'Especial'}] },
-        { id:'fecha_vencimiento', label:'Fecha de vencimiento', type:'date', required:true },
-        { id:'dictamen_global', label:'Dictamen', type:'select',
-          options:[{value:'APTO',label:'APTO'},{value:'APTO_CON_RESTRICCIONES',label:'APTO CON RESTRICCIONES'},{value:'NO_APTO',label:'NO APTO'}], required:true }
-      ]);
-      if (!d) return;
-      try {
-        const r = await API.emitirCertMedico({
-          agente_id: Number(d.agente_id),
-          tipo_examen: d.tipo_examen,
-          fecha_vencimiento: d.fecha_vencimiento,
-          dictamen_global: d.dictamen_global
-        });
-        if (r.ok) {
-          alert('✔ Certificado emitido: ' + r.codigo);
-          this.t_certificados_medicos(el);
-        }
-      } catch(e) { alert('Error: '+e.message); }
-    });
-    
-    // Ver detalles
-    el.querySelectorAll('[data-view-cert-med]').forEach(btn => 
-      btn.addEventListener('click', async () => {
-        const uid = btn.dataset.viewCertMed;
-        const r = await API.getCertMedicoAgente(uid);
-        const user = users.find(u => u.id == uid);
-        if (!r.certificado) {
-          alert('Sin certificado');
-          return;
-        }
-        const c = r.certificado;
-        alert(`Certificado N° ${c.codigo_certificado}\nAgente: ${user.apellido}, ${user.nombre}\nDictamen: ${c.dictamen_global}\nVence: ${c.fecha_vencimiento}\nEmitido: ${c.created_at}`);
-      })
-    );
-  },
     };
     document.getElementById('aud-buscar').addEventListener('click', buscar);
     document.getElementById('aud-desde').addEventListener('change', buscar);
@@ -3662,36 +3556,22 @@ const Gestion = {
     } catch (e) { alert(e.message); }
     return false;
   }
+,
   async t_certificados_medicos(el) {
+    const esSanidad = ['sanidad','admin'].includes(API.user?.role);
     el.innerHTML = '<p class="hint">Cargando…</p>';
     const { users } = await API.adminUsers().catch(() => ({ users: [] }));
-    el.innerHTML = `
-      <h2>Certificados Médicos</h2>
-      <p class="hint">Emisión de certificados de aptitud (Ley 25.506).</p>
-      <button class="btn-primary" id="btn-emit" style="margin-bottom:16px">+ Emitir certificado</button>
-      <table class="list-table">
-        <thead><tr><th>Agente</th><th>Legajo</th><th>Organismo</th><th>Estado</th><th>Vence</th><th>Código</th></tr></thead>
-        <tbody>${users.map(u => `<tr><td>${u.apellido}, ${u.nombre}</td><td>${u.legajo}</td><td>${u.organismo}</td>
-          <td class="est-${u.id}">—</td><td class="ven-${u.id}">—</td><td class="cod-${u.id}">—</td></tr>`).join('')}</tbody>
-      </table>
-    `;
-    users.forEach(u => API.getCertMedicoAgente(u.id).then(r => {
-      if (r.certificado) {
-        el.querySelector('.est-'+u.id)?.textContent = r.estado_sanidad;
-        el.querySelector('.ven-'+u.id)?.textContent = r.certificado.fecha_vencimiento;
-        el.querySelector('.cod-'+u.id)?.textContent = r.certificado.codigo_certificado;
-      }
-    }).catch(() => {}));
-    el.querySelector('#btn-emit')?.addEventListener('click', async () => {
-      const d = await this.formModal('Emitir certificado', [
-        { id:'agente_id', label:'Agente', type:'select', options:[{value:'',label:'—'},...users.map(u=>({value:u.id,label:u.apellido+', '+u.nombre}))], required:true },
-        { id:'fecha_vencimiento', label:'Vencimiento', type:'date', required:true },
-        { id:'dictamen_global', label:'Dictamen', type:'select', options:[{value:'APTO',label:'APTO'},{value:'NO_APTO',label:'NO APTO'}], required:true }
-      ]);
-      if (!d) return;
-      const r = await API.emitirCertMedico({agente_id: Number(d.agente_id), fecha_vencimiento: d.fecha_vencimiento, dictamen_global: d.dictamen_global, tipo_examen: 'ingreso'});
-      alert('✔ '+r.codigo);
-      this.t_certificados_medicos(el);
-    });
+    
+    let html = `<h2>Certificados Médicos</h2><p class="hint">Emisión de certificados de aptitud (Ley 25.506).</p>`;
+    if (esSanidad) html += '<button class="btn-primary" id="btn-emit">+ Emitir certificado</button>';
+    html += `<table class="list-table"><thead><tr><th>Agente</th><th>Legajo</th><th>Organismo</th><th>Estado</th><th>Vence</th><th>Código</th></tr></thead><tbody>`;
+    users.forEach(u => { html += `<tr><td>${u.apellido}, ${u.nombre}</td><td>${u.legajo}</td><td>${u.organismo}</td><td class="st${u.id}">—</td><td class="ve${u.id}">—</td><td class="cd${u.id}">—</td></tr>`; });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+    
+    users.forEach(u => { API.getCertMedicoAgente(u.id).then(r => { if (r && r.certificado) { const st = el.querySelector('.st'+u.id), ve = el.querySelector('.ve'+u.id), cd = el.querySelector('.cd'+u.id); if (st) st.textContent = r.estado_sanidad; if (ve) ve.textContent = r.certificado.fecha_vencimiento; if (cd) cd.textContent = r.certificado.codigo_certificado; } }).catch(() => {}); });
+    
+    const btn = el.querySelector('#btn-emit');
+    if (btn) { btn.addEventListener('click', async () => { const d = await this.formModal('Emitir certificado', [{id:'agente_id', label:'Agente', type:'select', options:[{value:'',label:'—'},...users.map(u=>({value:u.id,label:u.apellido+', '+u.nombre}))], required:true }, {id:'fecha_vencimiento', label:'Vencimiento', type:'date', required:true }, {id:'dictamen_global', label:'Dictamen', type:'select', options:[{value:'APTO',label:'APTO'},{value:'NO_APTO',label:'NO APTO'}], required:true }]); if (!d) return; try { const r = await API.emitirCertMedico({agente_id: Number(d.agente_id), fecha_vencimiento: d.fecha_vencimiento, dictamen_global: d.dictamen_global, tipo_examen: 'ingreso'}); alert('✔ '+r.codigo); this.t_certificados_medicos(el); } catch(e) { alert('Error: '+e.message); } }); }
   }
 };

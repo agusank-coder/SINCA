@@ -254,6 +254,8 @@ const API = (() => {
       if (limit) p.set('limit', limit);
       return request('GET', '/api/admin/audit?' + p.toString());
     },
+    getCertMedicoAgente: agente_id => request('GET', `/api/sanidad/certificados/agente/${agente_id}`),
+    emitirCertMedico: d => request('POST', '/api/sanidad/certificados', d),
     exportUrl: tipo => `/api/admin/export/${tipo}`,
     get token() { return token; }
   };
